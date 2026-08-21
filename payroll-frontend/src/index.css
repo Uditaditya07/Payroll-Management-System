@@ -1,0 +1,6 @@
+:root { --ink: #202522; --muted: #737b74; --paper: #f5f6f1; --surface: #fff; --line: #e1e5de; --green: #1f6b4c; --lime: #d7ef73; --orange: #e9864d; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: var(--ink); background: var(--paper); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+#root { min-height: 100svh; }
+button, input { font: inherit; }
+button { cursor: pointer; }
