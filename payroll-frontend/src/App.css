@@ -1767,3 +1767,141 @@ input {
     align-items: flex-start;
   }
 }
+/* =========================
+   RECENT PAYROLL RUNS
+========================= */
+
+.recent-payroll-card {
+  margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.recent-payroll-list {
+  margin-top: 18px;
+  width: 100%;
+}
+
+.recent-payroll-row {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 5px;
+  border-bottom: 1px solid #eeeeF1;
+}
+
+.recent-payroll-row:last-child {
+  border-bottom: none;
+}
+
+.recent-payroll-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.recent-payroll-avatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 10px;
+  background: #f0f1f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #252832;
+}
+
+.recent-payroll-person strong {
+  display: block;
+  font-size: 13px;
+  color: #252832;
+}
+
+.recent-payroll-person small {
+  display: block;
+  margin-top: 4px;
+  color: #8b909d;
+  font-size: 11px;
+}
+
+.recent-payroll-amount {
+  min-width: 130px;
+  text-align: right;
+}
+
+.recent-payroll-amount span {
+  display: block;
+  color: #8b909d;
+  font-size: 10px;
+}
+
+.recent-payroll-amount strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  color: #252832;
+}
+
+.payroll-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #eef8f1;
+  color: #2d8a4e;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.recent-payroll-empty {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #777d89;
+  font-size: 12px;
+}
+
+.recent-payroll-empty strong {
+  color: #252832;
+  font-size: 14px;
+}
+
+.recent-payroll-empty span {
+  margin-top: 5px;
+}
+
+@media (max-width: 700px) {
+
+  .recent-payroll-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .recent-payroll-person {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .recent-payroll-amount {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .payroll-status-badge {
+    align-self: flex-start;
+  }
+
+}

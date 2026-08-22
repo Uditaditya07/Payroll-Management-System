@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getPayrolls } from "../api";
 
 function money(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -19,6 +20,8 @@ export default function Dashboard({
   onReports,
 }) {
   const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [recentPayrolls, setRecentPayrolls] = useState([]);
+  const [payrollLoading, setPayrollLoading] = useState(true);
 
   const grossSalary = dashboard?.totalGrossSalary ?? 0;
   const netSalary = dashboard?.totalNetSalary ?? 0;
@@ -46,6 +49,31 @@ export default function Dashboard({
       onReports();
     }
   };
+
+  useEffect(() => {
+    const loadRecentPayrolls = async () => {
+      try {
+        setPayrollLoading(true);
+
+        const data = await getPayrolls();
+
+        const payrollList = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.content)
+            ? data.content
+            : [];
+
+        setRecentPayrolls(payrollList.slice(0, 5));
+      } catch (err) {
+        console.error("Recent payroll error:", err);
+        setRecentPayrolls([]);
+      } finally {
+        setPayrollLoading(false);
+      }
+    };
+
+    loadRecentPayrolls();
+  }, []);
 
   return (
     <div className="dashboard-layout">
@@ -205,6 +233,7 @@ export default function Dashboard({
               </div>
 
               <div>
+
                 <strong>
                   {user?.name || "User"}
                 </strong>
@@ -212,6 +241,7 @@ export default function Dashboard({
                 <small>
                   {user?.role || "USER"}
                 </small>
+
               </div>
 
               <span>
@@ -300,11 +330,10 @@ export default function Dashboard({
 
 
         {/* =========================
-            LOWER DASHBOARD
+            PAYROLL OVERVIEW + QUICK ACTIONS
         ========================= */}
 
         <section className="dashboard-grid">
-
 
           {/* PAYROLL OVERVIEW */}
 
@@ -333,7 +362,6 @@ export default function Dashboard({
 
             </div>
 
-
             <div className="payroll-visual">
 
               <div className="payroll-total">
@@ -352,7 +380,6 @@ export default function Dashboard({
                 </small>
 
               </div>
-
 
               <div className="donut">
 
@@ -395,19 +422,18 @@ export default function Dashboard({
 
             </div>
 
-
             <div className="quick-actions">
-
-              {/* ADD EMPLOYEE */}
 
               <button
                 onClick={() => handleNavigation("employees")}
               >
+
                 <span className="action-icon">
                   ＋
                 </span>
 
                 <div>
+
                   <strong>
                     Add employee
                   </strong>
@@ -415,24 +441,26 @@ export default function Dashboard({
                   <small>
                     Create employee record
                   </small>
+
                 </div>
 
                 <span>
                   →
                 </span>
+
               </button>
 
-
-              {/* RUN PAYROLL */}
 
               <button
                 onClick={() => handleNavigation("payroll")}
               >
+
                 <span className="action-icon">
                   ₹
                 </span>
 
                 <div>
+
                   <strong>
                     Run payroll
                   </strong>
@@ -440,24 +468,26 @@ export default function Dashboard({
                   <small>
                     Calculate monthly payroll
                   </small>
+
                 </div>
 
                 <span>
                   →
                 </span>
+
               </button>
 
-
-              {/* PAYSLIPS */}
 
               <button
                 onClick={() => handleNavigation("payslips")}
               >
+
                 <span className="action-icon">
                   ▣
                 </span>
 
                 <div>
+
                   <strong>
                     Generate payslips
                   </strong>
@@ -465,24 +495,26 @@ export default function Dashboard({
                   <small>
                     View employee payslips
                   </small>
+
                 </div>
 
                 <span>
                   →
                 </span>
+
               </button>
 
-
-              {/* REPORTS */}
 
               <button
                 onClick={() => handleNavigation("reports")}
               >
+
                 <span className="action-icon">
                   ◫
                 </span>
 
                 <div>
+
                   <strong>
                     View reports
                   </strong>
@@ -490,14 +522,129 @@ export default function Dashboard({
                   <small>
                     Analyse payroll summary
                   </small>
+
                 </div>
 
                 <span>
                   →
                 </span>
+
               </button>
 
             </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            RECENT PAYROLL RUNS
+        ========================= */}
+
+        <section className="dashboard-card recent-payroll-card">
+
+          <div className="card-header">
+
+            <div>
+
+              <span className="card-label">
+                PAYROLL ACTIVITY
+              </span>
+
+              <h2>
+                Recent payroll runs
+              </h2>
+
+            </div>
+
+            <button
+              className="view-button"
+              onClick={() => handleNavigation("payroll")}
+            >
+              View all →
+            </button>
+
+          </div>
+
+          <div className="recent-payroll-list">
+
+            {payrollLoading ? (
+
+              <div className="recent-payroll-empty">
+                Loading payroll records...
+              </div>
+
+            ) : recentPayrolls.length === 0 ? (
+
+              <div className="recent-payroll-empty">
+
+                <strong>
+                  No payroll runs yet
+                </strong>
+
+                <span>
+                  Process your first payroll to see it here.
+                </span>
+
+              </div>
+
+            ) : (
+
+              recentPayrolls.map((payroll) => (
+
+                <div
+                  className="recent-payroll-row"
+                  key={payroll.id}
+                >
+
+                  <div className="recent-payroll-person">
+
+                    <div className="recent-payroll-avatar">
+
+                      {(payroll.employeeName ||
+                        `Employee #${payroll.employeeId}`)
+                        ?.charAt(0)
+                        .toUpperCase()}
+
+                    </div>
+
+                    <div>
+
+                      <strong>
+                        {payroll.employeeName ||
+                          `Employee #${payroll.employeeId}`}
+                      </strong>
+
+                      <small>
+                        {payroll.month || "Current month"}
+                      </small>
+
+                    </div>
+
+                  </div>
+
+                  <div className="recent-payroll-amount">
+
+                    <span>
+                      Net salary
+                    </span>
+
+                    <strong>
+                      {money(payroll.netSalary)}
+                    </strong>
+
+                  </div>
+
+                  <span className="payroll-status-badge">
+                    Processed
+                  </span>
+
+                </div>
+
+              ))
+
+            )}
 
           </div>
 
@@ -532,7 +679,6 @@ export default function Dashboard({
             </button>
 
           </div>
-
 
           <div
             style={{
@@ -670,7 +816,6 @@ export default function Dashboard({
 
           </div>
 
-
           <div
             style={{
               display: "grid",
@@ -761,7 +906,6 @@ function Stat({
   subtitle,
   icon,
 }) {
-
   return (
     <article className="stat-card">
 
@@ -798,7 +942,6 @@ function SummaryItem({
   label,
   value,
 }) {
-
   return (
     <div
       style={{
