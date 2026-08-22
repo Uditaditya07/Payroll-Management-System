@@ -25,7 +25,8 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter) {
 
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.jwtAuthenticationFilter =
+                jwtAuthenticationFilter;
     }
 
     @Bean
@@ -33,21 +34,16 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /*
-     * =========================
-     * CORS CONFIGURATION
-     * =========================
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
+        configuration.setAllowedOriginPatterns(
                 Arrays.asList(
-                        "http://localhost:5173",
-                        "http://127.0.0.1:5173"
+                        "http://localhost:*",
+                        "https://*.app.github.dev"
                 )
         );
 
@@ -62,11 +58,11 @@ public class SecurityConfig {
         );
 
         configuration.setAllowedHeaders(
-                Arrays.asList(
-                        "Authorization",
-                        "Content-Type",
-                        "Accept"
-                )
+                Arrays.asList("*")
+        );
+
+        configuration.setExposedHeaders(
+                Arrays.asList("Authorization")
         );
 
         configuration.setAllowCredentials(true);
@@ -82,21 +78,18 @@ public class SecurityConfig {
         return source;
     }
 
-    /*
-     * =========================
-     * SECURITY
-     * =========================
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http) throws Exception {
 
         http
-            .csrf(csrf -> csrf.disable())
-
             .cors(cors -> cors.configurationSource(
-                    corsConfigurationSource()
+                corsConfigurationSource()
             ))
+
+            .csrf(csrf ->
+                csrf.disable()
+            )
 
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
@@ -106,22 +99,18 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                /*
-                 * =========================
-                 * AUTHENTICATION
-                 * =========================
-                 */
+                /* =========================
+                   AUTHENTICATION
+                ========================= */
 
                 .requestMatchers(
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
 
-                /*
-                 * =========================
-                 * GET
-                 * =========================
-                 */
+                /* =========================
+                   GET REQUESTS
+                ========================= */
 
                 .requestMatchers(
                     HttpMethod.GET,
@@ -133,11 +122,9 @@ public class SecurityConfig {
                     "/api/salaries/**"
                 ).authenticated()
 
-                /*
-                 * =========================
-                 * POST
-                 * =========================
-                 */
+                /* =========================
+                   ADMIN POST
+                ========================= */
 
                 .requestMatchers(
                     HttpMethod.POST,
@@ -146,11 +133,9 @@ public class SecurityConfig {
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                /*
-                 * =========================
-                 * PUT
-                 * =========================
-                 */
+                /* =========================
+                   ADMIN PUT
+                ========================= */
 
                 .requestMatchers(
                     HttpMethod.PUT,
@@ -159,11 +144,9 @@ public class SecurityConfig {
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                /*
-                 * =========================
-                 * DELETE
-                 * =========================
-                 */
+                /* =========================
+                   ADMIN DELETE
+                ========================= */
 
                 .requestMatchers(
                     HttpMethod.DELETE,
@@ -172,11 +155,18 @@ public class SecurityConfig {
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                /*
-                 * =========================
-                 * EVERYTHING ELSE
-                 * =========================
-                 */
+                /* =========================
+                   OPTIONS / CORS
+                ========================= */
+
+                .requestMatchers(
+                    HttpMethod.OPTIONS,
+                    "/**"
+                ).permitAll()
+
+                /* =========================
+                   EVERYTHING ELSE
+                ========================= */
 
                 .anyRequest().authenticated()
             )
