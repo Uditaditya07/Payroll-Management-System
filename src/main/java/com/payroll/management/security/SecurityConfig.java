@@ -10,6 +10,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
@@ -28,12 +33,70 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /*
+     * =========================
+     * CORS CONFIGURATION
+     * =========================
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration configuration =
+                new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                Arrays.asList(
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173"
+                )
+        );
+
+        configuration.setAllowedMethods(
+                Arrays.asList(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS"
+                )
+        );
+
+        configuration.setAllowedHeaders(
+                Arrays.asList(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept"
+                )
+        );
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
+
+        return source;
+    }
+
+    /*
+     * =========================
+     * SECURITY
+     * =========================
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http) throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
+
+            .cors(cors -> cors.configurationSource(
+                    corsConfigurationSource()
+            ))
 
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
@@ -43,13 +106,25 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // Authentication
+                /*
+                 * =========================
+                 * AUTHENTICATION
+                 * =========================
+                 */
+
                 .requestMatchers(
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
 
-                .requestMatchers(HttpMethod.GET,
+                /*
+                 * =========================
+                 * GET
+                 * =========================
+                 */
+
+                .requestMatchers(
+                    HttpMethod.GET,
                     "/api/dashboard/**",
                     "/api/employees/**",
                     "/api/payroll/**",
@@ -58,25 +133,51 @@ public class SecurityConfig {
                     "/api/salaries/**"
                 ).authenticated()
 
-                .requestMatchers(HttpMethod.POST,
+                /*
+                 * =========================
+                 * POST
+                 * =========================
+                 */
+
+                .requestMatchers(
+                    HttpMethod.POST,
                     "/api/employees/**",
                     "/api/payroll/**",
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.PUT,
+                /*
+                 * =========================
+                 * PUT
+                 * =========================
+                 */
+
+                .requestMatchers(
+                    HttpMethod.PUT,
                     "/api/employees/**",
                     "/api/payroll/**",
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.DELETE,
+                /*
+                 * =========================
+                 * DELETE
+                 * =========================
+                 */
+
+                .requestMatchers(
+                    HttpMethod.DELETE,
                     "/api/employees/**",
                     "/api/payroll/**",
                     "/api/salaries/**"
                 ).hasRole("ADMIN")
 
-                // Everything else requires authentication
+                /*
+                 * =========================
+                 * EVERYTHING ELSE
+                 * =========================
+                 */
+
                 .anyRequest().authenticated()
             )
 

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+
 import {
   getEmployees,
   getSalaries,
-  createSalary,
-  updateSalary,
-  deleteSalary,
+  calculatePayroll,
+  getPayrolls,
+  deletePayroll,
 } from "../api";
 
 function money(value) {
@@ -16,44 +17,65 @@ function money(value) {
 export default function Payroll({ onBack }) {
   const [employees, setEmployees] = useState([]);
   const [salaries, setSalaries] = useState([]);
+  const [payrolls, setPayrolls] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [editingId, setEditingId] = useState(null);
+  const [employeeId, setEmployeeId] = useState("");
+  const [month, setMonth] = useState("");
 
-  const [form, setForm] = useState({
-    employeeId: "",
-    basicSalary: "",
-    hra: "",
-    allowances: "",
-    bonus: "",
-    pf: "",
-    tax: "",
-    otherDeductions: "",
-  });
+  const [selectedPayroll, setSelectedPayroll] = useState(null);
+
+  /* =========================
+     LOAD DATA
+  ========================= */
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [employeeData, salaryData] = await Promise.all([
+      const [
+        employeeData,
+        salaryData,
+        payrollData,
+      ] = await Promise.all([
         getEmployees(),
         getSalaries(),
+        getPayrolls(),
       ]);
 
       setEmployees(
-        Array.isArray(employeeData) ? employeeData : []
+        Array.isArray(employeeData)
+          ? employeeData
+          : []
       );
 
       setSalaries(
-        Array.isArray(salaryData) ? salaryData : []
+        Array.isArray(salaryData)
+          ? salaryData
+          : []
+      );
+
+      setPayrolls(
+        Array.isArray(payrollData)
+          ? payrollData
+          : []
       );
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to load payroll data");
+      console.error(
+        "Payroll loading error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Failed to load payroll data"
+      );
     } finally {
       setLoading(false);
     }
@@ -63,93 +85,136 @@ export default function Payroll({ onBack }) {
     loadData();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  /* =========================
+     EMPLOYEE HELPERS
+  ========================= */
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+  const getEmployeeName = (id) => {
+    const employee = employees.find(
+      (item) =>
+        Number(item.id) === Number(id)
+    );
+
+    return (
+      employee?.name ||
+      "Unknown employee"
+    );
   };
 
-  const resetForm = () => {
-    setForm({
-      employeeId: "",
-      basicSalary: "",
-      hra: "",
-      allowances: "",
-      bonus: "",
-      pf: "",
-      tax: "",
-      otherDeductions: "",
-    });
+  const getEmployeeDepartment = (id) => {
+    const employee = employees.find(
+      (item) =>
+        Number(item.id) === Number(id)
+    );
 
-    setEditingId(null);
+    return employee?.department || "";
   };
 
-  const handleSubmit = async (e) => {
+  const getEmployeeSalary = (id) => {
+    const salary = salaries.find(
+      (item) =>
+        Number(item.employee?.id) ===
+        Number(id)
+    );
+
+    return salary;
+  };
+
+  /* =========================
+     SELECT EMPLOYEE
+  ========================= */
+
+  const handleEmployeeChange = (e) => {
+    const value = e.target.value;
+
+    setEmployeeId(value);
+    setSelectedPayroll(null);
+    setError("");
+    setSuccess("");
+  };
+
+  /* =========================
+     CALCULATE PAYROLL
+  ========================= */
+
+  const handleCalculate = async (e) => {
     e.preventDefault();
 
+    setError("");
+    setSuccess("");
+    setSelectedPayroll(null);
+
+    if (!employeeId) {
+      setError(
+        "Please select an employee."
+      );
+      return;
+    }
+
+    if (!month) {
+      setError(
+        "Please select a payroll month."
+      );
+      return;
+    }
+
+    const salary = getEmployeeSalary(
+      employeeId
+    );
+
+    if (!salary) {
+      setError(
+        "This employee does not have a salary structure. Please create salary details first."
+      );
+      return;
+    }
+
     try {
-      setSaving(true);
-      setError("");
+      setCalculating(true);
 
-      const salaryData = {
-        employeeId: Number(form.employeeId),
-        basicSalary: Number(form.basicSalary || 0),
-        hra: Number(form.hra || 0),
-        allowances: Number(form.allowances || 0),
-        bonus: Number(form.bonus || 0),
-        pf: Number(form.pf || 0),
-        tax: Number(form.tax || 0),
-        otherDeductions: Number(
-          form.otherDeductions || 0
-        ),
-      };
+      const payroll =
+        await calculatePayroll(
+          Number(employeeId),
+          month
+        );
 
-      if (editingId) {
-        await updateSalary(editingId, salaryData);
-      } else {
-        await createSalary(salaryData);
+      if (!payroll) {
+        throw new Error(
+          "Payroll could not be calculated. Please make sure the employee has a salary structure."
+        );
       }
 
-      resetForm();
+      setSelectedPayroll(payroll);
+
+      setSuccess(
+        "Payroll calculated successfully."
+      );
+
       await loadData();
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Payroll calculation error:",
+        err
+      );
+
       setError(
-        err.message || "Failed to save salary details"
+        err.message ||
+          "Failed to calculate payroll."
       );
     } finally {
-      setSaving(false);
+      setCalculating(false);
     }
   };
 
-  const handleEdit = (salary) => {
-    setEditingId(salary.id);
-
-    setForm({
-      employeeId: salary.employee?.id || "",
-      basicSalary: salary.basicSalary ?? "",
-      hra: salary.hra ?? "",
-      allowances: salary.allowances ?? "",
-      bonus: salary.bonus ?? "",
-      pf: salary.pf ?? "",
-      tax: salary.tax ?? "",
-      otherDeductions:
-        salary.otherDeductions ?? "",
-    });
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+  /* =========================
+     DELETE PAYROLL
+  ========================= */
 
   const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this salary record?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this payroll record?"
+      );
 
     if (!confirmed) {
       return;
@@ -157,53 +222,66 @@ export default function Payroll({ onBack }) {
 
     try {
       setError("");
+      setSuccess("");
 
-      await deleteSalary(id);
+      await deletePayroll(id);
+
+      if (
+        selectedPayroll?.id === id
+      ) {
+        setSelectedPayroll(null);
+      }
+
+      setSuccess(
+        "Payroll record deleted successfully."
+      );
+
       await loadData();
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Payroll delete error:",
+        err
+      );
+
       setError(
-        err.message || "Failed to delete salary record"
+        err.message ||
+          "Failed to delete payroll."
       );
     }
   };
 
-  const calculateGross = () => {
-    return (
-      Number(form.basicSalary || 0) +
-      Number(form.hra || 0) +
-      Number(form.allowances || 0) +
-      Number(form.bonus || 0)
-    );
+  /* =========================
+     VIEW PAYROLL
+  ========================= */
+
+  const handleView = (payroll) => {
+    setSelectedPayroll(payroll);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
-  const calculateDeductions = () => {
-    return (
-      Number(form.pf || 0) +
-      Number(form.tax || 0) +
-      Number(form.otherDeductions || 0)
-    );
-  };
+  /* =========================
+     CURRENT SALARY PREVIEW
+  ========================= */
 
-  const calculateNet = () => {
-    return calculateGross() - calculateDeductions();
-  };
+  const selectedSalary =
+    employeeId
+      ? getEmployeeSalary(employeeId)
+      : null;
 
-  const getEmployeeName = (salary) => {
-    return (
-      salary?.employee?.name ||
-      employees.find(
-        (employee) =>
-          employee.id === salary?.employee?.id
-      )?.name ||
-      "Unknown employee"
-    );
-  };
+  /* =========================
+     UI
+  ========================= */
 
   return (
     <div className="employees-page">
 
-      {/* HEADER */}
+      {/* =========================
+          HEADER
+      ========================= */}
 
       <div className="employees-top">
 
@@ -217,7 +295,7 @@ export default function Payroll({ onBack }) {
           </button>
 
           <div className="breadcrumb">
-            PAYROLL / SALARY
+            PAYROLL / PROCESSING
           </div>
 
           <h1>
@@ -225,8 +303,8 @@ export default function Payroll({ onBack }) {
           </h1>
 
           <p>
-            Manage employee salary structures and
-            deductions.
+            Calculate and manage employee
+            payroll for each month.
           </p>
 
         </div>
@@ -234,11 +312,11 @@ export default function Payroll({ onBack }) {
         <div className="employee-count">
 
           <strong>
-            {salaries.length}
+            {payrolls.length}
           </strong>
 
           <span>
-            Salary records
+            Payroll records
           </span>
 
         </div>
@@ -246,17 +324,52 @@ export default function Payroll({ onBack }) {
       </div>
 
 
-      {/* ERROR */}
+      {/* =========================
+          ERROR
+      ========================= */}
 
       {error && (
         <div className="employees-error">
-          <strong>!</strong>
-          {error}
+
+          <strong>
+            !
+          </strong>
+
+          <span>
+            {error}
+          </span>
+
         </div>
       )}
 
 
-      {/* SALARY FORM */}
+      {/* =========================
+          SUCCESS
+      ========================= */}
+
+      {success && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "14px 18px",
+            borderRadius: "12px",
+            background:
+              "rgba(34, 197, 94, 0.10)",
+            border:
+              "1px solid rgba(34, 197, 94, 0.25)",
+            color: "#15803d",
+            fontSize: "14px",
+            fontWeight: "600",
+          }}
+        >
+          ✓ {success}
+        </div>
+      )}
+
+
+      {/* =========================
+          CALCULATE PAYROLL
+      ========================= */}
 
       <section className="employee-form-card">
 
@@ -265,32 +378,21 @@ export default function Payroll({ onBack }) {
           <div>
 
             <span>
-              {editingId
-                ? "EDIT SALARY"
-                : "NEW SALARY"}
+              PAYROLL PROCESSING
             </span>
 
             <h2>
-              {editingId
-                ? "Update salary"
-                : "Create salary structure"}
+              Calculate employee payroll
             </h2>
 
           </div>
 
-          {editingId && (
-            <button
-              className="cancel-button"
-              onClick={resetForm}
-            >
-              Cancel
-            </button>
-          )}
-
         </div>
 
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleCalculate}
+        >
 
           <div className="form-grid">
 
@@ -303,9 +405,10 @@ export default function Payroll({ onBack }) {
               </span>
 
               <select
-                name="employeeId"
-                value={form.employeeId}
-                onChange={handleChange}
+                value={employeeId}
+                onChange={
+                  handleEmployeeChange
+                }
                 required
               >
 
@@ -313,264 +416,133 @@ export default function Payroll({ onBack }) {
                   Select employee
                 </option>
 
-                {employees.map((employee) => (
-                  <option
-                    key={employee.id}
-                    value={employee.id}
-                  >
-                    {employee.name} —{" "}
-                    {employee.department}
-                  </option>
-                ))}
+                {employees.map(
+                  (employee) => (
+                    <option
+                      key={employee.id}
+                      value={employee.id}
+                    >
+                      {employee.name}
+                      {employee.department
+                        ? ` — ${employee.department}`
+                        : ""}
+                    </option>
+                  )
+                )}
 
               </select>
 
             </label>
 
 
-            {/* BASIC */}
+            {/* MONTH */}
 
             <label>
 
               <span>
-                Basic salary
+                Payroll month
               </span>
 
               <input
-                type="number"
-                name="basicSalary"
-                value={form.basicSalary}
-                onChange={handleChange}
-                placeholder="50000"
-                min="0"
+                type="month"
+                value={month}
+                onChange={(e) =>
+                  setMonth(
+                    e.target.value
+                  )
+                }
                 required
               />
 
             </label>
 
-
-            {/* HRA */}
-
-            <label>
-
-              <span>
-                HRA
-              </span>
-
-              <input
-                type="number"
-                name="hra"
-                value={form.hra}
-                onChange={handleChange}
-                placeholder="10000"
-                min="0"
-              />
-
-            </label>
-
-
-            {/* ALLOWANCES */}
-
-            <label>
-
-              <span>
-                Allowances
-              </span>
-
-              <input
-                type="number"
-                name="allowances"
-                value={form.allowances}
-                onChange={handleChange}
-                placeholder="5000"
-                min="0"
-              />
-
-            </label>
-
-
-            {/* BONUS */}
-
-            <label>
-
-              <span>
-                Bonus
-              </span>
-
-              <input
-                type="number"
-                name="bonus"
-                value={form.bonus}
-                onChange={handleChange}
-                placeholder="2000"
-                min="0"
-              />
-
-            </label>
-
-
-            {/* PF */}
-
-            <label>
-
-              <span>
-                PF deduction
-              </span>
-
-              <input
-                type="number"
-                name="pf"
-                value={form.pf}
-                onChange={handleChange}
-                placeholder="3000"
-                min="0"
-              />
-
-            </label>
-
-
-            {/* TAX */}
-
-            <label>
-
-              <span>
-                Tax
-              </span>
-
-              <input
-                type="number"
-                name="tax"
-                value={form.tax}
-                onChange={handleChange}
-                placeholder="2000"
-                min="0"
-              />
-
-            </label>
-
-
-            {/* OTHER */}
-
-            <label>
-
-              <span>
-                Other deductions
-              </span>
-
-              <input
-                type="number"
-                name="otherDeductions"
-                value={form.otherDeductions}
-                onChange={handleChange}
-                placeholder="500"
-                min="0"
-              />
-
-            </label>
-
           </div>
 
 
-          {/* CALCULATION PREVIEW */}
+          {/* =========================
+              SALARY PREVIEW
+          ========================= */}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(3, 1fr)",
-              gap: "12px",
-              marginTop: "20px",
-              marginBottom: "20px",
-            }}
-          >
-
+          {selectedSalary && (
             <div
               style={{
-                padding: "15px",
-                borderRadius: "10px",
-                background: "rgba(0,0,0,0.04)",
+                marginTop: "24px",
+                padding: "20px",
+                borderRadius: "16px",
+                background:
+                  "rgba(0,0,0,0.035)",
+                border:
+                  "1px solid rgba(0,0,0,0.06)",
               }}
             >
 
-              <small>
-                Gross salary
-              </small>
-
-              <strong
+              <div
                 style={{
-                  display: "block",
-                  fontSize: "20px",
-                  marginTop: "5px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  letterSpacing: "0.08em",
+                  opacity: 0.6,
+                  marginBottom: "14px",
                 }}
               >
-                {money(calculateGross())}
-              </strong>
+                SALARY STRUCTURE
+              </div>
 
-            </div>
-
-
-            <div
-              style={{
-                padding: "15px",
-                borderRadius: "10px",
-                background: "rgba(0,0,0,0.04)",
-              }}
-            >
-
-              <small>
-                Total deductions
-              </small>
-
-              <strong
+              <div
                 style={{
-                  display: "block",
-                  fontSize: "20px",
-                  marginTop: "5px",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(4, minmax(0, 1fr))",
+                  gap: "14px",
                 }}
               >
-                {money(calculateDeductions())}
-              </strong>
+
+                <SalaryPreview
+                  label="Basic"
+                  value={
+                    selectedSalary.basicSalary
+                  }
+                />
+
+                <SalaryPreview
+                  label="HRA"
+                  value={
+                    selectedSalary.hra
+                  }
+                />
+
+                <SalaryPreview
+                  label="Allowances"
+                  value={
+                    selectedSalary.allowances
+                  }
+                />
+
+                <SalaryPreview
+                  label="Bonus"
+                  value={
+                    selectedSalary.bonus
+                  }
+                />
+
+              </div>
 
             </div>
-
-
-            <div
-              style={{
-                padding: "15px",
-                borderRadius: "10px",
-                background: "rgba(0,0,0,0.04)",
-              }}
-            >
-
-              <small>
-                Net salary
-              </small>
-
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: "20px",
-                  marginTop: "5px",
-                }}
-              >
-                {money(calculateNet())}
-              </strong>
-
-            </div>
-
-          </div>
+          )}
 
 
           <button
             className="primary-button"
             type="submit"
-            disabled={saving}
+            disabled={calculating}
+            style={{
+              marginTop: "24px",
+            }}
           >
-            {saving
-              ? "Saving..."
-              : editingId
-                ? "Save changes"
-                : "＋ Create salary"}
+
+            {calculating
+              ? "Calculating..."
+              : "Calculate Payroll →"}
 
           </button>
 
@@ -579,7 +551,232 @@ export default function Payroll({ onBack }) {
       </section>
 
 
-      {/* SALARY LIST */}
+      {/* =========================
+          GENERATED PAYROLL
+      ========================= */}
+
+      {selectedPayroll && (
+        <section
+          className="employee-form-card"
+          style={{
+            marginTop: "24px",
+          }}
+        >
+
+          <div className="form-heading">
+
+            <div>
+
+              <span>
+                PAYROLL RESULT
+              </span>
+
+              <h2>
+                {getEmployeeName(
+                  selectedPayroll.employeeId
+                )}
+              </h2>
+
+              <p
+                style={{
+                  marginTop: "6px",
+                  opacity: 0.65,
+                }}
+              >
+                {selectedPayroll.month}
+              </p>
+
+            </div>
+
+            <div
+              style={{
+                textAlign: "right",
+              }}
+            >
+
+              <small
+                style={{
+                  display: "block",
+                  opacity: 0.6,
+                  marginBottom: "4px",
+                }}
+              >
+                NET SALARY
+              </small>
+
+              <strong
+                style={{
+                  fontSize: "28px",
+                }}
+              >
+                {money(
+                  selectedPayroll.netSalary
+                )}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(4, minmax(0, 1fr))",
+              gap: "14px",
+              marginTop: "24px",
+            }}
+          >
+
+            <PayrollSummary
+              label="Basic salary"
+              value={
+                selectedPayroll.basicSalary
+              }
+            />
+
+            <PayrollSummary
+              label="HRA"
+              value={
+                selectedPayroll.hra
+              }
+            />
+
+            <PayrollSummary
+              label="Allowances"
+              value={
+                selectedPayroll.allowances
+              }
+            />
+
+            <PayrollSummary
+              label="Bonus"
+              value={
+                selectedPayroll.bonus
+              }
+            />
+
+          </div>
+
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(4, minmax(0, 1fr))",
+              gap: "14px",
+              marginTop: "14px",
+            }}
+          >
+
+            <PayrollSummary
+              label="Gross salary"
+              value={
+                selectedPayroll.grossSalary
+              }
+            />
+
+            <PayrollSummary
+              label="PF"
+              value={
+                selectedPayroll.pf
+              }
+            />
+
+            <PayrollSummary
+              label="Tax"
+              value={
+                selectedPayroll.tax
+              }
+            />
+
+            <PayrollSummary
+              label="Other deductions"
+              value={
+                selectedPayroll.otherDeductions
+              }
+            />
+
+          </div>
+
+
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "20px",
+              borderRadius: "14px",
+              background:
+                "rgba(0,0,0,0.035)",
+              display: "flex",
+              justifyContent:
+                "space-between",
+              alignItems: "center",
+            }}
+          >
+
+            <div>
+
+              <small
+                style={{
+                  display: "block",
+                  opacity: 0.6,
+                  marginBottom: "5px",
+                }}
+              >
+                TOTAL DEDUCTIONS
+              </small>
+
+              <strong
+                style={{
+                  fontSize: "22px",
+                }}
+              >
+                {money(
+                  selectedPayroll.totalDeductions
+                )}
+              </strong>
+
+            </div>
+
+
+            <div
+              style={{
+                textAlign: "right",
+              }}
+            >
+
+              <small
+                style={{
+                  display: "block",
+                  opacity: 0.6,
+                  marginBottom: "5px",
+                }}
+              >
+                NET SALARY
+              </small>
+
+              <strong
+                style={{
+                  fontSize: "26px",
+                }}
+              >
+                {money(
+                  selectedPayroll.netSalary
+                )}
+              </strong>
+
+            </div>
+
+          </div>
+
+        </section>
+      )}
+
+
+      {/* =========================
+          PAYROLL DIRECTORY
+      ========================= */}
 
       <section className="employee-list-card">
 
@@ -588,11 +785,11 @@ export default function Payroll({ onBack }) {
           <div>
 
             <span>
-              SALARY DIRECTORY
+              PAYROLL DIRECTORY
             </span>
 
             <h2>
-              Employee salaries
+              Generated payroll
             </h2>
 
           </div>
@@ -603,10 +800,10 @@ export default function Payroll({ onBack }) {
         {loading ? (
 
           <div className="empty-state">
-            Loading salary records...
+            Loading payroll records...
           </div>
 
-        ) : salaries.length === 0 ? (
+        ) : payrolls.length === 0 ? (
 
           <div className="empty-state">
 
@@ -615,12 +812,12 @@ export default function Payroll({ onBack }) {
             </div>
 
             <strong>
-              No salary records found
+              No payroll records found
             </strong>
 
             <p>
-              Create a salary structure for an
-              employee above.
+              Select an employee and
+              calculate payroll above.
             </p>
 
           </div>
@@ -640,7 +837,7 @@ export default function Payroll({ onBack }) {
                   </th>
 
                   <th>
-                    BASIC
+                    MONTH
                   </th>
 
                   <th>
@@ -666,101 +863,113 @@ export default function Payroll({ onBack }) {
 
               <tbody>
 
-                {salaries.map((salary) => (
+                {payrolls.map(
+                  (payroll) => (
 
-                  <tr key={salary.id}>
+                    <tr
+                      key={payroll.id}
+                    >
 
-                    <td>
+                      <td>
 
-                      <div className="employee-person">
+                        <div className="employee-person">
 
-                        <div className="employee-avatar">
-                          {getEmployeeName(salary)
-                            ?.charAt(0)
-                            .toUpperCase()}
-                        </div>
-
-                        <div>
-
-                          <strong>
-                            {getEmployeeName(salary)}
-                          </strong>
-
-                          <small>
-                            Salary ID #{salary.id}
-                          </small>
-
-                        </div>
-
-                      </div>
-
-                    </td>
-
-
-                    <td>
-                      {money(salary.basicSalary)}
-                    </td>
-
-
-                    <td>
-
-                      <strong>
-                        {money(
-                          salary.grossSalary
-                        )}
-                      </strong>
-
-                    </td>
-
-
-                    <td>
-                      {money(
-                        salary.totalDeductions
-                      )}
-                    </td>
-
-
-                    <td>
-
-                      <strong>
-                        {money(
-                          salary.netSalary
-                        )}
-                      </strong>
-
-                    </td>
-
-
-                    <td>
-
-                      <div className="row-actions">
-
-                        <button
-                          onClick={() =>
-                            handleEdit(salary)
-                          }
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          className="delete-action"
-                          onClick={() =>
-                            handleDelete(
-                              salary.id
+                          <div className="employee-avatar">
+                            {getEmployeeName(
+                              payroll.employeeId
                             )
-                          }
-                        >
-                          Delete
-                        </button>
+                              ?.charAt(0)
+                              .toUpperCase()}
+                          </div>
 
-                      </div>
+                          <div>
 
-                    </td>
+                            <strong>
+                              {getEmployeeName(
+                                payroll.employeeId
+                              )}
+                            </strong>
 
-                  </tr>
+                            <small>
+                              {getEmployeeDepartment(
+                                payroll.employeeId
+                              )}
+                            </small>
 
-                ))}
+                          </div>
+
+                        </div>
+
+                      </td>
+
+
+                      <td>
+                        {payroll.month}
+                      </td>
+
+
+                      <td>
+
+                        <strong>
+                          {money(
+                            payroll.grossSalary
+                          )}
+                        </strong>
+
+                      </td>
+
+
+                      <td>
+                        {money(
+                          payroll.totalDeductions
+                        )}
+                      </td>
+
+
+                      <td>
+
+                        <strong>
+                          {money(
+                            payroll.netSalary
+                          )}
+                        </strong>
+
+                      </td>
+
+
+                      <td>
+
+                        <div className="row-actions">
+
+                          <button
+                            onClick={() =>
+                              handleView(
+                                payroll
+                              )
+                            }
+                          >
+                            View
+                          </button>
+
+                          <button
+                            className="delete-action"
+                            onClick={() =>
+                              handleDelete(
+                                payroll.id
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+
+                  )
+                )}
 
               </tbody>
 
@@ -771,6 +980,82 @@ export default function Payroll({ onBack }) {
         )}
 
       </section>
+
+    </div>
+  );
+}
+
+
+/* =========================
+   SALARY PREVIEW
+========================= */
+
+function SalaryPreview({
+  label,
+  value,
+}) {
+  return (
+    <div>
+
+      <small
+        style={{
+          display: "block",
+          fontSize: "12px",
+          opacity: 0.6,
+          marginBottom: "6px",
+        }}
+      >
+        {label}
+      </small>
+
+      <strong
+        style={{
+          fontSize: "17px",
+        }}
+      >
+        {money(value)}
+      </strong>
+
+    </div>
+  );
+}
+
+
+/* =========================
+   PAYROLL SUMMARY
+========================= */
+
+function PayrollSummary({
+  label,
+  value,
+}) {
+  return (
+    <div
+      style={{
+        padding: "16px",
+        borderRadius: "12px",
+        background:
+          "rgba(0,0,0,0.035)",
+      }}
+    >
+
+      <small
+        style={{
+          display: "block",
+          opacity: 0.6,
+          marginBottom: "7px",
+        }}
+      >
+        {label}
+      </small>
+
+      <strong
+        style={{
+          fontSize: "19px",
+        }}
+      >
+        {money(value)}
+      </strong>
 
     </div>
   );

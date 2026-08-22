@@ -26,7 +26,9 @@ function App() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState("dashboard");
 
-  const authenticated = isAuthenticated();
+  /* =========================
+     LOAD DASHBOARD
+  ========================= */
 
   const loadDashboard = async () => {
     try {
@@ -34,22 +36,59 @@ function App() {
       setError("");
 
       const data = await getDashboard();
+
       setDashboard(data);
     } catch (err) {
       console.error("Dashboard error:", err);
-      setError(
-        err.message || "Unable to load dashboard"
-      );
+
+      const message =
+        err?.message || "Unable to load dashboard";
+
+      /*
+       * If the backend says the token is invalid
+       * or expired, immediately logout.
+       */
+      if (
+        message.toLowerCase().includes("invalid token") ||
+        message.toLowerCase().includes("expired token") ||
+        message.toLowerCase().includes("unauthorized") ||
+        message.toLowerCase().includes("401")
+      ) {
+        logout();
+
+        setUser(null);
+        setDashboard(null);
+        setCurrentPage("dashboard");
+
+        setError(
+          "Your session has expired. Please sign in again."
+        );
+
+        return;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  /* =========================
+     INITIAL LOAD
+  ========================= */
+
   useEffect(() => {
-    if (authenticated && user) {
+    const savedUser = getSavedUser();
+
+    if (savedUser && isAuthenticated()) {
+      setUser(savedUser);
       loadDashboard();
     }
   }, []);
+
+  /* =========================
+     LOGIN
+  ========================= */
 
   const handleLogin = async (email, password) => {
     try {
@@ -61,10 +100,16 @@ function App() {
         password
       );
 
-      if (response?.token) {
-        saveToken(response.token);
+      if (!response?.token) {
+        throw new Error(
+          "Login failed: authentication token was not received."
+        );
       }
 
+      /* Save JWT */
+      saveToken(response.token);
+
+      /* Save user */
       const loggedInUser = {
         id: response?.userId,
         name: response?.name,
@@ -73,8 +118,11 @@ function App() {
       };
 
       saveUser(loggedInUser);
-      setUser(loggedInUser);
 
+      setUser(loggedInUser);
+      setCurrentPage("dashboard");
+
+      /* Load dashboard after successful login */
       try {
         const dashboardData =
           await getDashboard();
@@ -85,16 +133,24 @@ function App() {
           "Dashboard loading error:",
           dashboardError
         );
+
+        /*
+         * Login succeeded even if dashboard
+         * loading failed.
+         */
+        setError(
+          dashboardError?.message ||
+          "Logged in, but dashboard could not be loaded."
+        );
       }
 
       return true;
 
     } catch (err) {
-
       console.error("Login error:", err);
 
       setError(
-        err.message ||
+        err?.message ||
         "Invalid email or password"
       );
 
@@ -105,6 +161,10 @@ function App() {
     }
   };
 
+  /* =========================
+     LOGOUT
+  ========================= */
+
   const handleLogout = () => {
     logout();
 
@@ -114,12 +174,34 @@ function App() {
     setError("");
   };
 
+  /* =========================
+     DASHBOARD
+  ========================= */
+
   const goToDashboard = () => {
     setCurrentPage("dashboard");
+    setError("");
+
     loadDashboard();
   };
 
-  if (!authenticated || !user) {
+  /* =========================
+     AUTH CHECK
+  ========================= */
+
+  /*
+   * Check authentication every render.
+   * This prevents the application from
+   * showing dashboard after logout.
+   */
+  const authenticated =
+    Boolean(user) && isAuthenticated();
+
+  /* =========================
+     LOGIN SCREEN
+  ========================= */
+
+  if (!authenticated) {
     return (
       <Login
         onLogin={handleLogin}
