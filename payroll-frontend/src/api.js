@@ -23,13 +23,20 @@ export function getRefreshToken() {
 }
 
 export function saveUser(user) {
-  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem(
+    "user",
+    JSON.stringify(user)
+  );
 }
 
 export function getSavedUser() {
   try {
-    const user = localStorage.getItem("user");
-    return user ? JSON.parse(user) : null;
+    const user =
+      localStorage.getItem("user");
+
+    return user
+      ? JSON.parse(user)
+      : null;
   } catch {
     return null;
   }
@@ -49,7 +56,10 @@ export function logout() {
    LOGIN
 ========================= */
 
-export async function loginUser(email, password) {
+export async function loginUser(
+  email,
+  password
+) {
   let response;
 
   try {
@@ -57,9 +67,12 @@ export async function loginUser(email, password) {
       `${API_BASE_URL}/api/auth/login`,
       {
         method: "POST",
+
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         },
+
         body: JSON.stringify({
           email,
           password,
@@ -67,7 +80,10 @@ export async function loginUser(email, password) {
       }
     );
   } catch (error) {
-    console.error("Login connection error:", error);
+    console.error(
+      "Login connection error:",
+      error
+    );
 
     throw new Error(
       "Unable to connect to the payroll server. Please make sure the backend is running."
@@ -90,14 +106,26 @@ export async function loginUser(email, password) {
     );
   }
 
-  /* Save access token */
-  if (data?.accessToken) {
-    saveToken(data.accessToken);
+  /* =========================
+     SAVE ACCESS TOKEN
+  ========================= */
+
+  const accessToken =
+    data?.accessToken ||
+    data?.token;
+
+  if (accessToken) {
+    saveToken(accessToken);
   }
 
-  /* Save refresh token */
+  /* =========================
+     SAVE REFRESH TOKEN
+  ========================= */
+
   if (data?.refreshToken) {
-    saveRefreshToken(data.refreshToken);
+    saveRefreshToken(
+      data.refreshToken
+    );
   }
 
   return data;
@@ -108,7 +136,8 @@ export async function loginUser(email, password) {
 ========================= */
 
 export async function refreshAccessToken() {
-  const refreshToken = getRefreshToken();
+  const refreshToken =
+    getRefreshToken();
 
   if (!refreshToken) {
     throw new Error(
@@ -123,9 +152,12 @@ export async function refreshAccessToken() {
       `${API_BASE_URL}/api/auth/refresh`,
       {
         method: "POST",
+
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         },
+
         body: JSON.stringify({
           refreshToken,
         }),
@@ -150,7 +182,16 @@ export async function refreshAccessToken() {
     data = null;
   }
 
+  /* =========================
+     REFRESH FAILED
+  ========================= */
+
   if (!response.ok) {
+    /*
+     * Only logout when the refresh
+     * token itself is rejected.
+     */
+
     logout();
 
     throw new Error(
@@ -159,6 +200,10 @@ export async function refreshAccessToken() {
         "Refresh token expired. Please login again."
     );
   }
+
+  /* =========================
+     NEW ACCESS TOKEN
+  ========================= */
 
   const newAccessToken =
     data?.accessToken ||
@@ -172,10 +217,12 @@ export async function refreshAccessToken() {
     );
   }
 
-  /* Save new access token */
   saveToken(newAccessToken);
 
-  /* Save rotated refresh token if backend sends one */
+  /* =========================
+     ROTATED REFRESH TOKEN
+  ========================= */
+
   if (data?.refreshToken) {
     saveRefreshToken(
       data.refreshToken
@@ -197,7 +244,9 @@ async function request(
   const token = getToken();
 
   const headers = {
-    "Content-Type": "application/json",
+    "Content-Type":
+      "application/json",
+
     ...(options.headers || {}),
   };
 
@@ -207,6 +256,10 @@ async function request(
   }
 
   let response;
+
+  /* =========================
+     SEND REQUEST
+  ========================= */
 
   try {
     response = await fetch(
@@ -229,26 +282,41 @@ async function request(
 
   /* =========================
      ACCESS TOKEN EXPIRED
+     
+     IMPORTANT:
+     ONLY 401 triggers refresh.
+     
+     403 does NOT trigger refresh.
   ========================= */
 
   if (
-    (response.status === 401 ||
-      response.status === 403) &&
+    response.status === 401 &&
     retry &&
     getRefreshToken()
   ) {
     try {
       await refreshAccessToken();
 
+      /*
+       * Retry original request
+       * using the newly generated
+       * access token.
+       */
+
       return request(
         endpoint,
         options,
         false
       );
+
     } catch (refreshError) {
       throw refreshError;
     }
   }
+
+  /* =========================
+     READ RESPONSE
+  ========================= */
 
   let data = null;
 
@@ -257,13 +325,40 @@ async function request(
       await response.text();
 
     if (text) {
-      data = JSON.parse(text);
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
     }
   } catch {
     data = null;
   }
 
+  /* =========================
+     HANDLE ERROR
+  ========================= */
+
   if (!response.ok) {
+
+    /*
+     * IMPORTANT:
+     *
+     * 403 is NOT treated as
+     * token expiration.
+     *
+     * Therefore the user stays
+     * logged in.
+     */
+
+    if (response.status === 403) {
+      throw new Error(
+        data?.error ||
+          data?.message ||
+          "Access denied. You do not have permission to perform this action."
+      );
+    }
+
     throw new Error(
       data?.error ||
         data?.message ||
@@ -301,6 +396,7 @@ export async function createEmployee(
     "/api/employees",
     {
       method: "POST",
+
       body: JSON.stringify(
         employee
       ),
@@ -316,6 +412,7 @@ export async function updateEmployee(
     `/api/employees/${id}`,
     {
       method: "PUT",
+
       body: JSON.stringify(
         employee
       ),
@@ -359,6 +456,7 @@ export async function createSalary(
     "/api/salary",
     {
       method: "POST",
+
       body: JSON.stringify(
         salary
       ),
@@ -374,6 +472,7 @@ export async function updateSalary(
     `/api/salary/${id}`,
     {
       method: "PUT",
+
       body: JSON.stringify(
         salary
       ),
@@ -421,6 +520,7 @@ export async function calculatePayroll(
     "/api/payroll",
     {
       method: "POST",
+
       body: JSON.stringify(
         payroll
       ),
@@ -435,6 +535,7 @@ export async function createPayroll(
     "/api/payroll",
     {
       method: "POST",
+
       body: JSON.stringify(
         payroll
       ),

@@ -17,12 +17,6 @@ public class JwtService {
      * =========================
      * JWT SECRET
      * =========================
-     *
-     * IMPORTANT:
-     * Keep this secret unchanged.
-     *
-     * Changing it invalidates all
-     * previously generated tokens.
      */
 
     private static final String SECRET =
@@ -34,15 +28,11 @@ public class JwtService {
      * ACCESS TOKEN
      * =========================
      *
-     * Access token validity:
-     *
-     * 15 minutes
+     * Valid for 15 minutes.
      */
 
     private static final long ACCESS_TOKEN_EXPIRATION =
-            1000L
-                    * 60
-                    * 15;
+            1000L * 60 * 15;
 
 
     /*
@@ -50,36 +40,22 @@ public class JwtService {
      * REFRESH TOKEN
      * =========================
      *
-     * Refresh token validity:
-     *
-     * 30 days
+     * Valid for 30 days.
      */
 
     private static final long REFRESH_TOKEN_EXPIRATION =
-            1000L
-                    * 60
-                    * 60
-                    * 24
-                    * 30;
+            1000L * 60 * 60 * 24 * 30;
 
-
-    /*
-     * =========================
-     * SECRET KEY
-     * =========================
-     */
 
     private final SecretKey key =
             Keys.hmacShaKeyFor(
-                    SECRET.getBytes(
-                            StandardCharsets.UTF_8
-                    )
+                    SECRET.getBytes(StandardCharsets.UTF_8)
             );
 
 
     /*
      * =========================
-     * GENERATE ACCESS TOKEN
+     * ACCESS TOKEN
      * =========================
      */
 
@@ -97,37 +73,20 @@ public class JwtService {
                 );
 
         return Jwts.builder()
-
                 .subject(email)
-
-                .claim(
-                        "userId",
-                        userId
-                )
-
-                .claim(
-                        "role",
-                        role
-                )
-
-                .claim(
-                        "type",
-                        "ACCESS"
-                )
-
+                .claim("userId", userId)
+                .claim("role", role)
+                .claim("type", "ACCESS")
                 .issuedAt(now)
-
                 .expiration(expiration)
-
                 .signWith(key)
-
                 .compact();
     }
 
 
     /*
      * =========================
-     * GENERATE REFRESH TOKEN
+     * REFRESH TOKEN
      * =========================
      */
 
@@ -145,30 +104,13 @@ public class JwtService {
                 );
 
         return Jwts.builder()
-
                 .subject(email)
-
-                .claim(
-                        "userId",
-                        userId
-                )
-
-                .claim(
-                        "role",
-                        role
-                )
-
-                .claim(
-                        "type",
-                        "REFRESH"
-                )
-
+                .claim("userId", userId)
+                .claim("role", role)
+                .claim("type", "REFRESH")
                 .issuedAt(now)
-
                 .expiration(expiration)
-
                 .signWith(key)
-
                 .compact();
     }
 
@@ -179,8 +121,7 @@ public class JwtService {
      * =========================
      */
 
-    public String extractEmail(
-            String token) {
+    public String extractEmail(String token) {
 
         return getClaims(token)
                 .getSubject();
@@ -193,14 +134,10 @@ public class JwtService {
      * =========================
      */
 
-    public String extractRole(
-            String token) {
+    public String extractRole(String token) {
 
         return getClaims(token)
-                .get(
-                        "role",
-                        String.class
-                );
+                .get("role", String.class);
     }
 
 
@@ -208,16 +145,23 @@ public class JwtService {
      * =========================
      * EXTRACT USER ID
      * =========================
+     *
+     * Use Number instead of directly
+     * expecting Long.
+     *
+     * This avoids JWT numeric claim
+     * conversion problems.
      */
 
-    public Long extractUserId(
-            String token) {
+    public Long extractUserId(String token) {
 
-        return getClaims(token)
-                .get(
-                        "userId",
-                        Long.class
-                );
+        Number userId =
+                getClaims(token)
+                        .get("userId", Number.class);
+
+        return userId != null
+                ? userId.longValue()
+                : null;
     }
 
 
@@ -227,25 +171,20 @@ public class JwtService {
      * =========================
      */
 
-    public String extractTokenType(
-            String token) {
+    public String extractTokenType(String token) {
 
         return getClaims(token)
-                .get(
-                        "type",
-                        String.class
-                );
+                .get("type", String.class);
     }
 
 
     /*
      * =========================
-     * CHECK ACCESS TOKEN
+     * ACCESS TOKEN CHECK
      * =========================
      */
 
-    public boolean isAccessToken(
-            String token) {
+    public boolean isAccessToken(String token) {
 
         try {
 
@@ -262,12 +201,11 @@ public class JwtService {
 
     /*
      * =========================
-     * CHECK REFRESH TOKEN
+     * REFRESH TOKEN CHECK
      * =========================
      */
 
-    public boolean isRefreshToken(
-            String token) {
+    public boolean isRefreshToken(String token) {
 
         try {
 
@@ -288,17 +226,12 @@ public class JwtService {
      * =========================
      */
 
-    private Claims getClaims(
-            String token) {
+    private Claims getClaims(String token) {
 
         return Jwts.parser()
-
                 .verifyWith(key)
-
                 .build()
-
                 .parseSignedClaims(token)
-
                 .getPayload();
     }
 }
