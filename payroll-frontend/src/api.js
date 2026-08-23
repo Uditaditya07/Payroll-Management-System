@@ -28,38 +28,15 @@ async function request(endpoint, options = {}) {
       }
     );
   } catch (error) {
-    console.error("Backend connection error:", error);
-
     throw new Error(
       "Unable to connect to the payroll server. Please make sure the backend is running."
     );
   }
 
-  /* =========================
-     UNAUTHORIZED
-  ========================= */
-
   if (response.status === 401) {
     logout();
-
-    throw new Error(
-      "Invalid token or expired token"
-    );
+    throw new Error("Invalid token or expired token");
   }
-
-  /* =========================
-     FORBIDDEN
-  ========================= */
-
-  if (response.status === 403) {
-    throw new Error(
-      "Access denied. Please login again or check your account permissions."
-    );
-  }
-
-  /* =========================
-     READ RESPONSE
-  ========================= */
 
   let data = null;
 
@@ -68,10 +45,6 @@ async function request(endpoint, options = {}) {
   } catch {
     data = null;
   }
-
-  /* =========================
-     OTHER ERRORS
-  ========================= */
 
   if (!response.ok) {
     throw new Error(
@@ -89,10 +62,7 @@ async function request(endpoint, options = {}) {
    AUTHENTICATION
 ========================= */
 
-export async function loginUser(
-  email,
-  password
-) {
+export async function loginUser(email, password) {
   return request("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({
@@ -102,14 +72,9 @@ export async function loginUser(
   });
 }
 
-
 export function saveToken(token) {
-  localStorage.setItem(
-    "token",
-    token
-  );
+  localStorage.setItem("token", token);
 }
-
 
 export function saveUser(user) {
   localStorage.setItem(
@@ -118,11 +83,9 @@ export function saveUser(user) {
   );
 }
 
-
 export function getSavedUser() {
   try {
-    const user =
-      localStorage.getItem("user");
+    const user = localStorage.getItem("user");
 
     return user
       ? JSON.parse(user)
@@ -133,14 +96,11 @@ export function getSavedUser() {
   }
 }
 
-
 export function isAuthenticated() {
-  const token =
-    localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
   return !!token;
 }
-
 
 export function logout() {
   localStorage.removeItem("token");
@@ -153,9 +113,7 @@ export function logout() {
 ========================= */
 
 export async function getDashboard() {
-  return request(
-    "/api/dashboard"
-  );
+  return request("/api/dashboard");
 }
 
 
@@ -164,66 +122,41 @@ export async function getDashboard() {
 ========================= */
 
 export async function getEmployees() {
-  return request(
-    "/api/employees"
-  );
+  return request("/api/employees");
 }
-
 
 export async function getEmployee(id) {
-  return request(
-    `/api/employees/${id}`
-  );
+  return request(`/api/employees/${id}`);
 }
 
-
-export async function createEmployee(
-  employee
-) {
-  return request(
-    "/api/employees",
-    {
-      method: "POST",
-      body: JSON.stringify(employee),
-    }
-  );
+export async function createEmployee(employee) {
+  return request("/api/employees", {
+    method: "POST",
+    body: JSON.stringify(employee),
+  });
 }
-
 
 export async function updateEmployee(
   id,
   employee
 ) {
-  return request(
-    `/api/employees/${id}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(employee),
-    }
-  );
+  return request(`/api/employees/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(employee),
+  });
 }
-
 
 export async function deleteEmployee(id) {
-  return request(
-    `/api/employees/${id}`,
-    {
-      method: "DELETE",
-    }
-  );
+  return request(`/api/employees/${id}`, {
+    method: "DELETE",
+  });
 }
 
-
-export async function searchEmployeesByName(
-  name
-) {
+export async function searchEmployeesByName(name) {
   return request(
-    `/api/employees/search/name?name=${encodeURIComponent(
-      name
-    )}`
+    `/api/employees/search/name?name=${encodeURIComponent(name)}`
   );
 }
-
 
 export async function searchEmployeesByDepartment(
   department
@@ -235,10 +168,7 @@ export async function searchEmployeesByDepartment(
   );
 }
 
-
-export async function searchEmployeesByEmail(
-  email
-) {
+export async function searchEmployeesByEmail(email) {
   return request(
     `/api/employees/search/email?email=${encodeURIComponent(
       email
@@ -252,53 +182,34 @@ export async function searchEmployeesByEmail(
 ========================= */
 
 export async function getSalaries() {
-  return request(
-    "/api/salary"
-  );
+  return request("/api/salaries");
 }
-
 
 export async function getSalary(id) {
-  return request(
-    `/api/salary/${id}`
-  );
+  return request(`/api/salaries/${id}`);
 }
 
-
-export async function createSalary(
-  salary
-) {
-  return request(
-    "/api/salary",
-    {
-      method: "POST",
-      body: JSON.stringify(salary),
-    }
-  );
+export async function createSalary(salary) {
+  return request("/api/salaries", {
+    method: "POST",
+    body: JSON.stringify(salary),
+  });
 }
-
 
 export async function updateSalary(
   id,
   salary
 ) {
-  return request(
-    `/api/salary/${id}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(salary),
-    }
-  );
+  return request(`/api/salaries/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(salary),
+  });
 }
 
-
 export async function deleteSalary(id) {
-  return request(
-    `/api/salary/${id}`,
-    {
-      method: "DELETE",
-    }
-  );
+  return request(`/api/salaries/${id}`, {
+    method: "DELETE",
+  });
 }
 
 
@@ -310,11 +221,10 @@ export async function calculatePayroll(
   employeeId,
   month
 ) {
-  const params =
-    new URLSearchParams({
-      employeeId,
-      month,
-    });
+  const params = new URLSearchParams({
+    employeeId,
+    month,
+  });
 
   return request(
     `/api/payroll/calculate?${params.toString()}`,
@@ -324,44 +234,29 @@ export async function calculatePayroll(
   );
 }
 
-
 export async function getPayrolls() {
-  return request(
-    "/api/payroll"
-  );
+  return request("/api/payroll");
 }
-
 
 export async function getPayroll(id) {
-  return request(
-    `/api/payroll/${id}`
-  );
+  return request(`/api/payroll/${id}`);
 }
-
 
 export async function deletePayroll(id) {
-  return request(
-    `/api/payroll/${id}`,
-    {
-      method: "DELETE",
-    }
-  );
+  return request(`/api/payroll/${id}`, {
+    method: "DELETE",
+  });
 }
-
 
 export async function updatePayroll(
   id,
   payroll
 ) {
-  return request(
-    `/api/payroll/${id}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(payroll),
-    }
-  );
+  return request(`/api/payroll/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payroll),
+  });
 }
-
 
 export async function getPayrollsByEmployee(
   employeeId
@@ -377,9 +272,7 @@ export async function getPayrollsByEmployee(
 ========================= */
 
 export async function getPayslip(id) {
-  return request(
-    `/api/payslip/${id}`
-  );
+  return request(`/api/payslip/${id}`);
 }
 
 
@@ -388,7 +281,5 @@ export async function getPayslip(id) {
 ========================= */
 
 export async function getPayrollReport() {
-  return request(
-    "/api/reports/payroll"
-  );
+  return request("/api/reports/payroll");
 }
