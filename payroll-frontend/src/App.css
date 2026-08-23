@@ -2304,3 +2304,90 @@ input {
     padding: 12px 15px;
   }
 }
+/* =========================================
+   PAYSLIP DOWNLOAD ACTIONS
+========================================= */
+
+.payslip-actions {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto 18px auto;
+
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.payslip-download-button {
+  min-width: 165px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+}
+
+.payslip-download-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* =========================================
+   PAYSLIP PDF DOCUMENT
+========================================= */
+
+#payslip-document {
+  width: 100%;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+
+  background: #ffffff;
+}
+
+
+/* =========================================
+   PDF PRINT SAFETY
+========================================= */
+
+.payslip-section {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.payslip-header {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.net-salary-card {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.payslip-footer {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 768px) {
+
+  .payslip-actions {
+    max-width: 100%;
+    justify-content: stretch;
+  }
+
+  .payslip-download-button {
+    width: 100%;
+  }
+
+}
