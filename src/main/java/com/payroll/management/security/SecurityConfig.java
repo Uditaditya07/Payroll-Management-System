@@ -2,14 +2,13 @@ package com.payroll.management.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -17,7 +16,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 @Configuration
-@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -29,10 +27,116 @@ public class SecurityConfig {
                 jwtAuthenticationFilter;
     }
 
+    /*
+     * =========================
+     * SECURITY FILTER CHAIN
+     * =========================
+     */
+
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
+
+        http
+
+            /*
+             * =========================
+             * CORS
+             * =========================
+             */
+
+            .cors(cors ->
+                    cors.configurationSource(
+                            corsConfigurationSource()
+                    )
+            )
+
+            /*
+             * =========================
+             * CSRF
+             * =========================
+             *
+             * Disabled because the frontend
+             * communicates with the backend
+             * using JWT authentication.
+             */
+
+            .csrf(csrf ->
+                    csrf.disable()
+            )
+
+            /*
+             * =========================
+             * SESSION MANAGEMENT
+             * =========================
+             *
+             * JWT authentication is stateless.
+             */
+
+            .sessionManagement(session ->
+                    session.sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS
+                    )
+            )
+
+            /*
+             * =========================
+             * AUTHORIZATION
+             * =========================
+             */
+
+            .authorizeHttpRequests(auth -> auth
+
+                    /*
+                     * Authentication endpoints
+                     * do NOT require JWT.
+                     */
+
+                    .requestMatchers(
+                            "/api/auth/login",
+                            "/api/auth/register"
+                    ).permitAll()
+
+                    /*
+                     * OPTIONS requests are required
+                     * for CORS preflight.
+                     */
+
+                    .requestMatchers(
+                            org.springframework.http.HttpMethod.OPTIONS,
+                            "/**"
+                    ).permitAll()
+
+                    /*
+                     * Everything else requires
+                     * a valid JWT token.
+                     */
+
+                    .anyRequest().authenticated()
+            )
+
+            /*
+             * =========================
+             * JWT FILTER
+             * =========================
+             *
+             * Run our JWT filter before
+             * Spring's username/password filter.
+             */
+
+            .addFilterBefore(
+                    jwtAuthenticationFilter,
+                    UsernamePasswordAuthenticationFilter.class
+            );
+
+        return http.build();
     }
+
+    /*
+     * =========================
+     * CORS CONFIGURATION
+     * =========================
+     */
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -40,12 +144,20 @@ public class SecurityConfig {
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
+        /*
+         * Allow frontend origins.
+         *
+         * "*" is useful during development,
+         * especially when using GitHub Codespaces.
+         */
+
         configuration.setAllowedOriginPatterns(
-                Arrays.asList(
-                        "http://localhost:*",
-                        "https://*.app.github.dev"
-                )
+                Arrays.asList("*")
         );
+
+        /*
+         * HTTP methods used by the application.
+         */
 
         configuration.setAllowedMethods(
                 Arrays.asList(
@@ -53,19 +165,42 @@ public class SecurityConfig {
                         "POST",
                         "PUT",
                         "DELETE",
+                        "PATCH",
                         "OPTIONS"
                 )
         );
 
+        /*
+         * Allow required headers including
+         * Authorization: Bearer <JWT>
+         */
+
         configuration.setAllowedHeaders(
-                Arrays.asList("*")
+                Arrays.asList(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "Origin",
+                        "X-Requested-With"
+                )
         );
+
+        /*
+         * Allow frontend to read response headers.
+         */
 
         configuration.setExposedHeaders(
-                Arrays.asList("Authorization")
+                Arrays.asList(
+                        "Authorization"
+                )
         );
 
-        configuration.setAllowCredentials(true);
+        /*
+         * We are using JWT in the Authorization
+         * header rather than cookies.
+         */
+
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -76,112 +211,5 @@ public class SecurityConfig {
         );
 
         return source;
-    }
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http) throws Exception {
-
-        http
-            .cors(cors -> cors.configurationSource(
-                corsConfigurationSource()
-            ))
-
-            .csrf(csrf ->
-                csrf.disable()
-            )
-
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(
-                    SessionCreationPolicy.STATELESS
-                )
-            )
-
-            .authorizeHttpRequests(auth -> auth
-
-                /* =========================
-                   AUTHENTICATION
-                ========================= */
-
-                .requestMatchers(
-                    "/api/auth/register",
-                    "/api/auth/login"
-                ).permitAll()
-
-                /* =========================
-                   GET REQUESTS
-                ========================= */
-
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/dashboard/**",
-                    "/api/employees/**",
-                    "/api/payroll/**",
-                    "/api/payslip/**",
-                    "/api/reports/**",
-                    "/api/salaries/**"
-                ).authenticated()
-
-                /* =========================
-                   ADMIN POST
-                ========================= */
-
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/employees/**",
-                    "/api/payroll/**",
-                    "/api/salaries/**"
-                ).hasRole("ADMIN")
-
-                /* =========================
-                   ADMIN PUT
-                ========================= */
-
-                .requestMatchers(
-                    HttpMethod.PUT,
-                    "/api/employees/**",
-                    "/api/payroll/**",
-                    "/api/salaries/**"
-                ).hasRole("ADMIN")
-
-                /* =========================
-                   ADMIN DELETE
-                ========================= */
-
-                .requestMatchers(
-                    HttpMethod.DELETE,
-                    "/api/employees/**",
-                    "/api/payroll/**",
-                    "/api/salaries/**"
-                ).hasRole("ADMIN")
-
-                /* =========================
-                   OPTIONS / CORS
-                ========================= */
-
-                .requestMatchers(
-                    HttpMethod.OPTIONS,
-                    "/**"
-                ).permitAll()
-
-                /* =========================
-                   EVERYTHING ELSE
-                ========================= */
-
-                .anyRequest().authenticated()
-            )
-
-            .addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
-
-        http.headers(headers ->
-            headers.frameOptions(frame ->
-                frame.sameOrigin()
-            )
-        );
-
-        return http.build();
     }
 }

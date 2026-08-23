@@ -1,50 +1,76 @@
-const API_BASE_URL = "https://turbo-space-spoon-7vrq9r9gvjvpfp75g-8080.app.github.dev";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://turbo-space-spoon-7vrq9r9gvjvpfp75g-8080.app.github.dev";
 
 /* =========================
-   COMMON REQUEST
+   TOKEN STORAGE
 ========================= */
 
-async function request(endpoint, options = {}) {
-  const token = localStorage.getItem("token");
+export function saveToken(token) {
+  localStorage.setItem("token", token);
+}
 
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-  };
+export function getToken() {
+  return localStorage.getItem("token");
+}
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+export function saveRefreshToken(token) {
+  localStorage.setItem("refreshToken", token);
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem("refreshToken");
+}
+
+export function saveUser(user) {
+  localStorage.setItem("user", JSON.stringify(user));
+}
+
+export function getSavedUser() {
+  try {
+    const user = localStorage.getItem("user");
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
   }
+}
 
+export function isAuthenticated() {
+  return !!getToken();
+}
+
+export function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+}
+
+/* =========================
+   LOGIN
+========================= */
+
+export async function loginUser(email, password) {
   let response;
 
   try {
     response = await fetch(
-      `${API_BASE_URL}${endpoint}`,
+      `${API_BASE_URL}/api/auth/login`,
       {
-        ...options,
-        headers,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       }
     );
   } catch (error) {
-    console.error("Backend connection error:", error);
+    console.error("Login connection error:", error);
 
     throw new Error(
       "Unable to connect to the payroll server. Please make sure the backend is running."
-    );
-  }
-
-  if (response.status === 401) {
-    logout();
-
-    throw new Error(
-      "Invalid token or expired token. Please login again."
-    );
-  }
-
-  if (response.status === 403) {
-    throw new Error(
-      "Access denied. Please login again or check your account permissions."
     );
   }
 
@@ -58,231 +84,403 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     throw new Error(
-      data?.message ||
       data?.error ||
-      `Request failed with status ${response.status}`
+        data?.message ||
+        "Invalid email or password"
+    );
+  }
+
+  /* Save access token */
+  if (data?.accessToken) {
+    saveToken(data.accessToken);
+  }
+
+  /* Save refresh token */
+  if (data?.refreshToken) {
+    saveRefreshToken(data.refreshToken);
+  }
+
+  return data;
+}
+
+/* =========================
+   REFRESH ACCESS TOKEN
+========================= */
+
+export async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    throw new Error(
+      "No refresh token available. Please login again."
+    );
+  }
+
+  let response;
+
+  try {
+    response = await fetch(
+      `${API_BASE_URL}/api/auth/refresh`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          refreshToken,
+        }),
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Refresh token connection error:",
+      error
+    );
+
+    throw new Error(
+      "Unable to connect to the payroll server."
+    );
+  }
+
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    logout();
+
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        "Refresh token expired. Please login again."
+    );
+  }
+
+  const newAccessToken =
+    data?.accessToken ||
+    data?.token;
+
+  if (!newAccessToken) {
+    logout();
+
+    throw new Error(
+      "New access token was not received."
+    );
+  }
+
+  /* Save new access token */
+  saveToken(newAccessToken);
+
+  /* Save rotated refresh token if backend sends one */
+  if (data?.refreshToken) {
+    saveRefreshToken(
+      data.refreshToken
+    );
+  }
+
+  return newAccessToken;
+}
+
+/* =========================
+   GENERIC REQUEST
+========================= */
+
+async function request(
+  endpoint,
+  options = {},
+  retry = true
+) {
+  const token = getToken();
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers.Authorization =
+      `Bearer ${token}`;
+  }
+
+  let response;
+
+  try {
+    response = await fetch(
+      `${API_BASE_URL}${endpoint}`,
+      {
+        ...options,
+        headers,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "API connection error:",
+      error
+    );
+
+    throw new Error(
+      "Unable to connect to the payroll server. Please make sure the backend is running."
+    );
+  }
+
+  /* =========================
+     ACCESS TOKEN EXPIRED
+  ========================= */
+
+  if (
+    (response.status === 401 ||
+      response.status === 403) &&
+    retry &&
+    getRefreshToken()
+  ) {
+    try {
+      await refreshAccessToken();
+
+      return request(
+        endpoint,
+        options,
+        false
+      );
+    } catch (refreshError) {
+      throw refreshError;
+    }
+  }
+
+  let data = null;
+
+  try {
+    const text =
+      await response.text();
+
+    if (text) {
+      data = JSON.parse(text);
+    }
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        `Request failed with status ${response.status}`
     );
   }
 
   return data;
 }
 
-
-/* =========================
-   AUTHENTICATION
-========================= */
-
-export async function loginUser(email, password) {
-  return request("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email,
-      password,
-    }),
-  });
-}
-
-export function saveToken(token) {
-  localStorage.setItem("token", token);
-}
-
-export function saveUser(user) {
-  localStorage.setItem(
-    "user",
-    JSON.stringify(user)
-  );
-}
-
-export function getSavedUser() {
-  try {
-    const user = localStorage.getItem("user");
-
-    return user
-      ? JSON.parse(user)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-export function isAuthenticated() {
-  const token = localStorage.getItem("token");
-
-  return !!token;
-}
-
-export function logout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-}
-
-
 /* =========================
    DASHBOARD
 ========================= */
 
 export async function getDashboard() {
-  return request("/api/dashboard");
+  return request(
+    "/api/dashboard"
+  );
 }
-
 
 /* =========================
    EMPLOYEES
 ========================= */
 
 export async function getEmployees() {
-  return request("/api/employees");
-}
-
-export async function getEmployee(id) {
-  return request(`/api/employees/${id}`);
-}
-
-export async function createEmployee(employee) {
-  return request("/api/employees", {
-    method: "POST",
-    body: JSON.stringify(employee),
-  });
-}
-
-export async function updateEmployee(id, employee) {
-  return request(`/api/employees/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(employee),
-  });
-}
-
-export async function deleteEmployee(id) {
-  return request(`/api/employees/${id}`, {
-    method: "DELETE",
-  });
-}
-
-export async function searchEmployeesByName(name) {
   return request(
-    `/api/employees/search/name?name=${encodeURIComponent(name)}`
+    "/api/employees"
   );
 }
 
-export async function searchEmployeesByDepartment(
-  department
+export async function createEmployee(
+  employee
 ) {
   return request(
-    `/api/employees/search/department?department=${encodeURIComponent(
-      department
-    )}`
+    "/api/employees",
+    {
+      method: "POST",
+      body: JSON.stringify(
+        employee
+      ),
+    }
   );
 }
 
-export async function searchEmployeesByEmail(email) {
+export async function updateEmployee(
+  id,
+  employee
+) {
   return request(
-    `/api/employees/search/email?email=${encodeURIComponent(
-      email
-    )}`
+    `/api/employees/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        employee
+      ),
+    }
   );
 }
 
+export async function deleteEmployee(
+  id
+) {
+  return request(
+    `/api/employees/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
 
 /* =========================
    SALARY
 ========================= */
 
 export async function getSalaries() {
-  return request("/api/salaries");
+  return request(
+    "/api/salary"
+  );
 }
 
-export async function getSalary(id) {
-  return request(`/api/salaries/${id}`);
+export async function getEmployeeSalary(
+  employeeId
+) {
+  return request(
+    `/api/salary/${employeeId}`
+  );
 }
 
-export async function createSalary(salary) {
-  return request("/api/salaries", {
-    method: "POST",
-    body: JSON.stringify(salary),
-  });
+export async function createSalary(
+  salary
+) {
+  return request(
+    "/api/salary",
+    {
+      method: "POST",
+      body: JSON.stringify(
+        salary
+      ),
+    }
+  );
 }
 
-export async function updateSalary(id, salary) {
-  return request(`/api/salaries/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(salary),
-  });
+export async function updateSalary(
+  id,
+  salary
+) {
+  return request(
+    `/api/salary/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        salary
+      ),
+    }
+  );
 }
 
-export async function deleteSalary(id) {
-  return request(`/api/salaries/${id}`, {
-    method: "DELETE",
-  });
+export async function deleteSalary(
+  id
+) {
+  return request(
+    `/api/salary/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
-
 
 /* =========================
    PAYROLL
 ========================= */
 
-export async function calculatePayroll(
-  employeeId,
-  month
-) {
-  const params = new URLSearchParams({
-    employeeId: String(employeeId),
-    month: String(month),
-  });
-
+export async function getPayrolls() {
   return request(
-    `/api/payroll/calculate?${params.toString()}`,
+    "/api/payroll"
+  );
+}
+
+export async function getPayroll(
+  id
+) {
+  return request(
+    `/api/payroll/${id}`
+  );
+}
+
+/* =========================
+   CALCULATE / CREATE PAYROLL
+========================= */
+
+export async function calculatePayroll(
+  payroll
+) {
+  return request(
+    "/api/payroll",
     {
       method: "POST",
+      body: JSON.stringify(
+        payroll
+      ),
     }
   );
 }
 
-export async function getPayrolls() {
-  return request("/api/payroll");
-}
-
-export async function getPayroll(id) {
-  return request(`/api/payroll/${id}`);
-}
-
-export async function deletePayroll(id) {
-  return request(`/api/payroll/${id}`, {
-    method: "DELETE",
-  });
-}
-
-export async function updatePayroll(
-  id,
+export async function createPayroll(
   payroll
 ) {
-  return request(`/api/payroll/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payroll),
-  });
-}
-
-export async function getPayrollsByEmployee(
-  employeeId
-) {
   return request(
-    `/api/payroll/employee/${employeeId}`
+    "/api/payroll",
+    {
+      method: "POST",
+      body: JSON.stringify(
+        payroll
+      ),
+    }
   );
 }
 
-
-/* =========================
-   PAYSLIPS
-========================= */
-
-export async function getPayslip(id) {
-  return request(`/api/payslip/${id}`);
+export async function deletePayroll(
+  id
+) {
+  return request(
+    `/api/payroll/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
+/* =========================
+   PAYSLIP
+========================= */
+
+export async function getPayslip(
+  payrollId
+) {
+  return request(
+    `/api/payslip/${payrollId}`
+  );
+}
 
 /* =========================
    REPORTS
 ========================= */
 
-export async function getPayrollReport() {
-  return request("/api/reports/payroll");
+export async function getPayrollReport(
+  month = null
+) {
+  let endpoint =
+    "/api/reports/payroll";
+
+  if (month) {
+    endpoint +=
+      `?month=${encodeURIComponent(
+        month
+      )}`;
+  }
+
+  return request(endpoint);
 }

@@ -7,7 +7,9 @@ public class AuthResponse {
     private String name;
     private String email;
     private String role;
-    private String token;
+
+    private String accessToken;
+    private String refreshToken;
 
     public AuthResponse() {
     }
@@ -18,14 +20,16 @@ public class AuthResponse {
             String name,
             String email,
             String role,
-            String token) {
+            String accessToken,
+            String refreshToken) {
 
         this.message = message;
         this.userId = userId;
         this.name = name;
         this.email = email;
         this.role = role;
-        this.token = token;
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
     }
 
     public String getMessage() {
@@ -68,11 +72,19 @@ public class AuthResponse {
         this.role = role;
     }
 
-    public String getToken() {
-        return token;
+    public String getAccessToken() {
+        return accessToken;
     }
 
-    public void setToken(String token) {
-        this.token = token;
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 }

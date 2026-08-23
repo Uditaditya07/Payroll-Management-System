@@ -15,11 +15,14 @@ import java.io.IOException;
 import java.util.Collections;
 
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter
+        extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(
+            JwtService jwtService) {
+
         this.jwtService = jwtService;
     }
 
@@ -30,21 +33,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authorizationHeader =
+        String authHeader =
                 request.getHeader("Authorization");
 
-        // No Authorization header
-        if (authorizationHeader == null ||
-                !authorizationHeader.startsWith("Bearer ")) {
+        /*
+         * No Authorization header.
+         *
+         * Let Spring Security decide whether
+         * the requested endpoint is public
+         * or protected.
+         */
 
-            filterChain.doFilter(request, response);
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            filterChain.doFilter(
+                    request,
+                    response
+            );
+
             return;
         }
 
         String token =
-                authorizationHeader.substring(7);
+                authHeader.substring(7);
 
         try {
+
+            /*
+             * Extract information from ACCESS TOKEN.
+             */
 
             String email =
                     jwtService.extractEmail(token);
@@ -52,45 +70,72 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String role =
                     jwtService.extractRole(token);
 
+            Long userId =
+                    jwtService.extractUserId(token);
+
+            /*
+             * Only authenticate if there isn't
+             * already an authentication object.
+             */
+
             if (email != null &&
                     SecurityContextHolder
                             .getContext()
                             .getAuthentication() == null) {
 
-                SimpleGrantedAuthority authority =
-                        new SimpleGrantedAuthority(
-                                "ROLE_" + role
-                        );
-
-                UsernamePasswordAuthenticationToken authentication =
+                UsernamePasswordAuthenticationToken
+                        authentication =
                         new UsernamePasswordAuthenticationToken(
                                 email,
                                 null,
-                                Collections.singletonList(authority)
+                                Collections.singletonList(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_" + role
+                                        )
+                                )
                         );
+
+                /*
+                 * Store user ID as request attribute.
+                 *
+                 * Controllers/services can retrieve it
+                 * if needed.
+                 */
+
+                request.setAttribute(
+                        "userId",
+                        userId
+                );
 
                 SecurityContextHolder
                         .getContext()
-                        .setAuthentication(authentication);
+                        .setAuthentication(
+                                authentication
+                        );
             }
 
-        } catch (Exception exception) {
+        } catch (Exception e) {
 
-            response.setStatus(
-                    HttpServletResponse.SC_UNAUTHORIZED
+            /*
+             * Invalid or expired access token.
+             *
+             * Do not crash the application.
+             * Spring Security will return 401/403
+             * for protected endpoints.
+             */
+
+            SecurityContextHolder
+                    .clearContext();
+
+            request.setAttribute(
+                    "jwtError",
+                    "Invalid or expired token"
             );
-
-            response.setContentType(
-                    "application/json"
-            );
-
-            response.getWriter().write(
-                    "{\"error\":\"Invalid or expired token\"}"
-            );
-
-            return;
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(
+                request,
+                response
+        );
     }
 }

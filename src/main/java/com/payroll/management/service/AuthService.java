@@ -36,20 +36,24 @@ public class AuthService implements CommandLineRunner {
 
     /*
      * =========================
-     * CREATE PERMANENT ADMIN
+     * CREATE / VERIFY ADMIN
      * =========================
      */
+
     @Override
     public void run(String... args) {
 
         User existingUser =
-                userRepository.findByEmail(ADMIN_EMAIL)
+                userRepository
+                        .findByEmail(ADMIN_EMAIL)
                         .orElse(null);
 
         if (existingUser == null) {
 
             String hashedPassword =
-                    passwordEncoder.encode(ADMIN_PASSWORD);
+                    passwordEncoder.encode(
+                            ADMIN_PASSWORD
+                    );
 
             User admin = new User(
                     "Uditaditya Yadav",
@@ -63,33 +67,31 @@ public class AuthService implements CommandLineRunner {
             System.out.println(
                     "========================================"
             );
+
             System.out.println(
                     "ADMIN ACCOUNT CREATED"
             );
+
             System.out.println(
                     "Email: " + ADMIN_EMAIL
             );
+
             System.out.println(
                     "Role: ADMIN"
             );
+
             System.out.println(
                     "========================================"
             );
 
         } else {
 
-            /*
-             * Make sure this account always
-             * remains an ADMIN.
-             */
             existingUser.setRole("ADMIN");
 
-            /*
-             * Reset the password to the known
-             * admin password.
-             */
             existingUser.setPassword(
-                    passwordEncoder.encode(ADMIN_PASSWORD)
+                    passwordEncoder.encode(
+                            ADMIN_PASSWORD
+                    )
             );
 
             userRepository.save(existingUser);
@@ -97,15 +99,19 @@ public class AuthService implements CommandLineRunner {
             System.out.println(
                     "========================================"
             );
+
             System.out.println(
                     "ADMIN ACCOUNT VERIFIED"
             );
+
             System.out.println(
                     "Email: " + ADMIN_EMAIL
             );
+
             System.out.println(
                     "Role: ADMIN"
             );
+
             System.out.println(
                     "========================================"
             );
@@ -117,22 +123,18 @@ public class AuthService implements CommandLineRunner {
      * REGISTER
      * =========================
      */
-    public AuthResponse register(RegisterRequest request) {
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+    public AuthResponse register(
+            RegisterRequest request) {
+
+        if (userRepository.existsByEmail(
+                request.getEmail())) {
 
             throw new RuntimeException(
                     "Email already registered"
             );
         }
 
-        /*
-         * Normal registration creates
-         * an EMPLOYEE account.
-         *
-         * ADMIN accounts are created
-         * separately above.
-         */
         String role = "EMPLOYEE";
 
         String hashedPassword =
@@ -150,8 +152,15 @@ public class AuthService implements CommandLineRunner {
         User savedUser =
                 userRepository.save(user);
 
-        String token =
-                jwtService.generateToken(
+        String accessToken =
+                jwtService.generateAccessToken(
+                        savedUser.getId(),
+                        savedUser.getEmail(),
+                        savedUser.getRole()
+                );
+
+        String refreshToken =
+                jwtService.generateRefreshToken(
                         savedUser.getId(),
                         savedUser.getEmail(),
                         savedUser.getRole()
@@ -163,7 +172,8 @@ public class AuthService implements CommandLineRunner {
                 savedUser.getName(),
                 savedUser.getEmail(),
                 savedUser.getRole(),
-                token
+                accessToken,
+                refreshToken
         );
     }
 
@@ -172,11 +182,15 @@ public class AuthService implements CommandLineRunner {
      * LOGIN
      * =========================
      */
-    public AuthResponse login(LoginRequest request) {
+
+    public AuthResponse login(
+            LoginRequest request) {
 
         User user =
                 userRepository
-                        .findByEmail(request.getEmail())
+                        .findByEmail(
+                                request.getEmail()
+                        )
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Invalid email or password"
@@ -196,8 +210,15 @@ public class AuthService implements CommandLineRunner {
             );
         }
 
-        String token =
-                jwtService.generateToken(
+        String accessToken =
+                jwtService.generateAccessToken(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getRole()
+                );
+
+        String refreshToken =
+                jwtService.generateRefreshToken(
                         user.getId(),
                         user.getEmail(),
                         user.getRole()
@@ -209,7 +230,128 @@ public class AuthService implements CommandLineRunner {
                 user.getName(),
                 user.getEmail(),
                 user.getRole(),
-                token
+                accessToken,
+                refreshToken
         );
+    }
+
+    /*
+     * =========================
+     * REFRESH ACCESS TOKEN
+     * =========================
+     */
+
+    public AuthResponse refreshToken(
+            String refreshToken) {
+
+        if (refreshToken == null ||
+                refreshToken.isBlank()) {
+
+            throw new RuntimeException(
+                    "Refresh token is required"
+            );
+        }
+
+        try {
+
+            /*
+             * Verify that the refresh token is
+             * valid and has not expired.
+             */
+
+            if (!jwtService.isRefreshToken(
+                    refreshToken)) {
+
+                throw new RuntimeException(
+                        "Invalid refresh token"
+                );
+            }
+
+            /*
+             * Extract user information from
+             * the refresh token.
+             */
+
+            Long userId =
+                    jwtService.extractUserId(
+                            refreshToken
+                    );
+
+            String email =
+                    jwtService.extractEmail(
+                            refreshToken
+                    );
+
+            /*
+             * Find the current user.
+             *
+             * This also ensures that a deleted
+             * user cannot continue refreshing tokens.
+             */
+
+            User user =
+                    userRepository
+                            .findById(userId)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "User not found"
+                                    )
+                            );
+
+            /*
+             * Make sure the email in the token
+             * still matches the database user.
+             */
+
+            if (!user.getEmail()
+                    .equalsIgnoreCase(email)) {
+
+                throw new RuntimeException(
+                        "Invalid refresh token"
+                );
+            }
+
+            /*
+             * Generate a NEW access token.
+             *
+             * The refresh token itself remains
+             * valid for its 30-day lifetime.
+             */
+
+            String newAccessToken =
+                    jwtService.generateAccessToken(
+                            user.getId(),
+                            user.getEmail(),
+                            user.getRole()
+                    );
+
+            /*
+             * Return the new access token.
+             *
+             * We also return the existing refresh
+             * token so the frontend can continue
+             * storing it.
+             */
+
+            return new AuthResponse(
+                    "Access token refreshed",
+                    user.getId(),
+                    user.getName(),
+                    user.getEmail(),
+                    user.getRole(),
+                    newAccessToken,
+                    refreshToken
+            );
+
+        } catch (RuntimeException e) {
+
+            throw e;
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Invalid or expired refresh token"
+            );
+        }
     }
 }

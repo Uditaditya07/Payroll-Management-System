@@ -20,18 +20,22 @@ import Payslip from "./pages/Payslip";
 import Reports from "./pages/Reports";
 
 function App() {
-  const [user, setUser] = useState(getSavedUser());
-  const [dashboard, setDashboard] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [user, setUser] = useState(
+    getSavedUser()
+  );
+
+  const [dashboard, setDashboard] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   const [currentPage, setCurrentPage] =
     useState("dashboard");
 
-  /*
-   * Stores the payroll ID whose payslip
-   * should currently be displayed.
-   */
   const [selectedPayrollId, setSelectedPayrollId] =
     useState(null);
 
@@ -44,22 +48,40 @@ function App() {
       setLoading(true);
       setError("");
 
-      const data = await getDashboard();
+      const data =
+        await getDashboard();
 
       setDashboard(data);
+
     } catch (err) {
-      console.error("Dashboard error:", err);
+
+      console.error(
+        "Dashboard error:",
+        err
+      );
 
       const message =
         err?.message ||
         "Unable to load dashboard";
 
       if (
-        message.toLowerCase().includes("invalid token") ||
-        message.toLowerCase().includes("expired token") ||
-        message.toLowerCase().includes("unauthorized") ||
-        message.toLowerCase().includes("401")
+        message
+          .toLowerCase()
+          .includes("invalid token") ||
+        message
+          .toLowerCase()
+          .includes("expired token") ||
+        message
+          .toLowerCase()
+          .includes("unauthorized") ||
+        message
+          .toLowerCase()
+          .includes("401") ||
+        message
+          .toLowerCase()
+          .includes("refresh token expired")
       ) {
+
         logout();
 
         setUser(null);
@@ -75,6 +97,7 @@ function App() {
       }
 
       setError(message);
+
     } finally {
       setLoading(false);
     }
@@ -85,12 +108,20 @@ function App() {
   ========================= */
 
   useEffect(() => {
-    const savedUser = getSavedUser();
 
-    if (savedUser && isAuthenticated()) {
+    const savedUser =
+      getSavedUser();
+
+    if (
+      savedUser &&
+      isAuthenticated()
+    ) {
+
       setUser(savedUser);
+
       loadDashboard();
     }
+
   }, []);
 
   /* =========================
@@ -101,7 +132,9 @@ function App() {
     email,
     password
   ) => {
+
     try {
+
       setLoading(true);
       setError("");
 
@@ -111,33 +144,71 @@ function App() {
           password
         );
 
-      if (!response?.token) {
+      /*
+       * Backend returns:
+       *
+       * accessToken
+       * refreshToken
+       */
+
+      if (
+        !response?.accessToken
+      ) {
+
         throw new Error(
-          "Login failed: authentication token was not received."
+          "Login failed: access token was not received."
         );
       }
 
-      saveToken(response.token);
+      /*
+       * loginUser() already saves:
+       *
+       * accessToken
+       * refreshToken
+       *
+       * so we only save the user here.
+       */
 
       const loggedInUser = {
         id: response?.userId,
         name: response?.name,
         email: response?.email,
-        role: response?.role || "ADMIN",
+        role:
+          response?.role ||
+          "ADMIN",
       };
 
-      saveUser(loggedInUser);
+      saveUser(
+        loggedInUser
+      );
 
-      setUser(loggedInUser);
-      setCurrentPage("dashboard");
-      setSelectedPayrollId(null);
+      setUser(
+        loggedInUser
+      );
+
+      setCurrentPage(
+        "dashboard"
+      );
+
+      setSelectedPayrollId(
+        null
+      );
+
+      /*
+       * Load dashboard
+       */
 
       try {
+
         const dashboardData =
           await getDashboard();
 
-        setDashboard(dashboardData);
+        setDashboard(
+          dashboardData
+        );
+
       } catch (dashboardError) {
+
         console.error(
           "Dashboard loading error:",
           dashboardError
@@ -152,6 +223,7 @@ function App() {
       return true;
 
     } catch (err) {
+
       console.error(
         "Login error:",
         err
@@ -165,7 +237,9 @@ function App() {
       return false;
 
     } finally {
+
       setLoading(false);
+
     }
   };
 
@@ -174,22 +248,32 @@ function App() {
   ========================= */
 
   const handleLogout = () => {
+
     logout();
 
     setUser(null);
     setDashboard(null);
-    setCurrentPage("dashboard");
+    setCurrentPage(
+      "dashboard"
+    );
     setSelectedPayrollId(null);
     setError("");
   };
 
   /* =========================
-     DASHBOARD
+     GO TO DASHBOARD
   ========================= */
 
   const goToDashboard = () => {
-    setCurrentPage("dashboard");
-    setSelectedPayrollId(null);
+
+    setCurrentPage(
+      "dashboard"
+    );
+
+    setSelectedPayrollId(
+      null
+    );
+
     setError("");
 
     loadDashboard();
@@ -202,11 +286,15 @@ function App() {
   const openPayslip = (
     payrollId
   ) => {
+
     setSelectedPayrollId(
       payrollId
     );
 
-    setCurrentPage("payslip");
+    setCurrentPage(
+      "payslip"
+    );
+
     setError("");
   };
 
@@ -223,6 +311,7 @@ function App() {
   ========================= */
 
   if (!authenticated) {
+
     return (
       <Login
         onLogin={handleLogin}
@@ -237,11 +326,15 @@ function App() {
   ========================= */
 
   if (
-    currentPage === "employees"
+    currentPage ===
+    "employees"
   ) {
+
     return (
       <Employees
-        onBack={goToDashboard}
+        onBack={
+          goToDashboard
+        }
       />
     );
   }
@@ -251,11 +344,15 @@ function App() {
   ========================= */
 
   if (
-    currentPage === "salary"
+    currentPage ===
+    "salary"
   ) {
+
     return (
       <Salary
-        onBack={goToDashboard}
+        onBack={
+          goToDashboard
+        }
       />
     );
   }
@@ -265,12 +362,18 @@ function App() {
   ========================= */
 
   if (
-    currentPage === "payroll"
+    currentPage ===
+    "payroll"
   ) {
+
     return (
       <Payroll
-        onBack={goToDashboard}
-        onViewPayslip={openPayslip}
+        onBack={
+          goToDashboard
+        }
+        onViewPayslip={
+          openPayslip
+        }
       />
     );
   }
@@ -280,14 +383,18 @@ function App() {
   ========================= */
 
   if (
-    currentPage === "payslip"
+    currentPage ===
+    "payslip"
   ) {
+
     return (
       <Payslip
         payrollId={
           selectedPayrollId
         }
-        onBack={goToDashboard}
+        onBack={
+          goToDashboard
+        }
       />
     );
   }
@@ -297,11 +404,15 @@ function App() {
   ========================= */
 
   if (
-    currentPage === "reports"
+    currentPage ===
+    "reports"
   ) {
+
     return (
       <Reports
-        onBack={goToDashboard}
+        onBack={
+          goToDashboard
+        }
       />
     );
   }
@@ -316,8 +427,12 @@ function App() {
       dashboard={dashboard}
       loading={loading}
       error={error}
-      onLogout={handleLogout}
-      onRefresh={loadDashboard}
+      onLogout={
+        handleLogout
+      }
+      onRefresh={
+        loadDashboard
+      }
 
       onEmployees={() =>
         setCurrentPage(
@@ -338,6 +453,7 @@ function App() {
       }
 
       onPayslips={() => {
+
         setSelectedPayrollId(
           null
         );
