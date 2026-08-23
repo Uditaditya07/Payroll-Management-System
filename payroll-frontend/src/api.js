@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  "https://turbo-space-spoon-7vrq9r9gvjvpfp75g-8080.app.github.dev";
+const API_BASE_URL = "https://turbo-space-spoon-7vrq9r9gvjvpfp75g-8080.app.github.dev";
 
 /* =========================
    COMMON REQUEST
@@ -28,6 +27,8 @@ async function request(endpoint, options = {}) {
       }
     );
   } catch (error) {
+    console.error("Backend connection error:", error);
+
     throw new Error(
       "Unable to connect to the payroll server. Please make sure the backend is running."
     );
@@ -35,7 +36,16 @@ async function request(endpoint, options = {}) {
 
   if (response.status === 401) {
     logout();
-    throw new Error("Invalid token or expired token");
+
+    throw new Error(
+      "Invalid token or expired token. Please login again."
+    );
+  }
+
+  if (response.status === 403) {
+    throw new Error(
+      "Access denied. Please login again or check your account permissions."
+    );
   }
 
   let data = null;
@@ -90,7 +100,6 @@ export function getSavedUser() {
     return user
       ? JSON.parse(user)
       : null;
-
   } catch {
     return null;
   }
@@ -136,10 +145,7 @@ export async function createEmployee(employee) {
   });
 }
 
-export async function updateEmployee(
-  id,
-  employee
-) {
+export async function updateEmployee(id, employee) {
   return request(`/api/employees/${id}`, {
     method: "PUT",
     body: JSON.stringify(employee),
@@ -196,10 +202,7 @@ export async function createSalary(salary) {
   });
 }
 
-export async function updateSalary(
-  id,
-  salary
-) {
+export async function updateSalary(id, salary) {
   return request(`/api/salaries/${id}`, {
     method: "PUT",
     body: JSON.stringify(salary),
@@ -222,8 +225,8 @@ export async function calculatePayroll(
   month
 ) {
   const params = new URLSearchParams({
-    employeeId,
-    month,
+    employeeId: String(employeeId),
+    month: String(month),
   });
 
   return request(
