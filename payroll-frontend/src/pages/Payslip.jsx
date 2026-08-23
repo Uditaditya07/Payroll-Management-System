@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getPayslip } from "../api";
 
 function money(value) {
@@ -7,16 +7,24 @@ function money(value) {
   })}`;
 }
 
-export default function Payslip({ onBack }) {
-  const [payrollId, setPayrollId] = useState("");
+export default function Payslip({
+  onBack,
+  payrollId: initialPayrollId,
+}) {
+  const [payrollId, setPayrollId] = useState(
+    initialPayrollId || ""
+  );
+
   const [payslip, setPayslip] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
+  /* =========================
+     LOAD PAYSLIP
+  ========================= */
 
-    if (!payrollId) {
+  const loadPayslip = async (id) => {
+    if (!id) {
       setError("Please enter a payroll ID.");
       return;
     }
@@ -26,7 +34,7 @@ export default function Payslip({ onBack }) {
       setError("");
       setPayslip(null);
 
-      const data = await getPayslip(payrollId);
+      const data = await getPayslip(id);
 
       if (!data) {
         throw new Error("Payslip not found.");
@@ -34,20 +42,54 @@ export default function Payslip({ onBack }) {
 
       setPayslip(data);
     } catch (err) {
-      setError(err.message || "Unable to load payslip.");
+      console.error("Payslip loading error:", err);
+
+      setError(
+        err?.message ||
+          "Unable to load payslip."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  /* =========================
+     AUTOMATIC PAYSLIP LOAD
+  ========================= */
+
+  useEffect(() => {
+    if (initialPayrollId) {
+      setPayrollId(initialPayrollId);
+      loadPayslip(initialPayrollId);
+    }
+  }, [initialPayrollId]);
+
+  /* =========================
+     MANUAL SEARCH
+  ========================= */
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+
+    if (!payrollId) {
+      setError("Please enter a payroll ID.");
+      return;
+    }
+
+    await loadPayslip(payrollId);
+  };
+
   return (
     <div className="payslip-page">
 
-      {/* HEADER */}
+      {/* =========================
+          HEADER
+      ========================= */}
 
       <div className="payslip-top">
 
         <div>
+
           <button
             className="back-button"
             onClick={onBack}
@@ -59,20 +101,27 @@ export default function Payslip({ onBack }) {
             PAYROLL / PAYSLIPS
           </div>
 
-          <h1>Payslips</h1>
+          <h1>
+            Payslips
+          </h1>
 
           <p>
             View professional employee payslips.
           </p>
+
         </div>
 
       </div>
 
-      {/* SEARCH */}
+
+      {/* =========================
+          SEARCH
+      ========================= */}
 
       <section className="payslip-search-card">
 
         <div>
+
           <span className="card-label">
             FIND PAYSLIP
           </span>
@@ -85,7 +134,9 @@ export default function Payslip({ onBack }) {
             Enter the payroll run ID to generate
             the employee payslip.
           </p>
+
         </div>
+
 
         <form
           className="payslip-search-form"
@@ -116,31 +167,71 @@ export default function Payslip({ onBack }) {
 
       </section>
 
-      {/* ERROR */}
+
+      {/* =========================
+          ERROR
+      ========================= */}
 
       {error && (
         <div className="employees-error">
-          <strong>!</strong>
-          {error}
+
+          <strong>
+            !
+          </strong>
+
+          <span>
+            {error}
+          </span>
+
         </div>
       )}
 
-      {/* PAYSLIP */}
 
-      {payslip && (
+      {/* =========================
+          LOADING
+      ========================= */}
+
+      {loading && !payslip && (
         <section className="payslip-document">
 
-          {/* PAYSLIP HEADER */}
+          <div
+            style={{
+              padding: "40px",
+              textAlign: "center",
+              opacity: 0.7,
+            }}
+          >
+            Loading payslip...
+          </div>
+
+        </section>
+      )}
+
+
+      {/* =========================
+          PAYSLIP DOCUMENT
+      ========================= */}
+
+      {payslip && (
+
+        <section className="payslip-document">
+
+          {/* =========================
+              PAYSLIP HEADER
+          ========================= */}
 
           <div className="payslip-header">
 
             <div>
+
               <div className="payslip-brand">
+
                 <div className="payslip-logo">
                   P
                 </div>
 
                 <div>
+
                   <strong>
                     PayFlow
                   </strong>
@@ -148,8 +239,11 @@ export default function Payslip({ onBack }) {
                   <span>
                     PAYROLL
                   </span>
+
                 </div>
+
               </div>
+
 
               <h2>
                 Salary Payslip
@@ -158,7 +252,9 @@ export default function Payslip({ onBack }) {
               <p>
                 Professional payroll statement
               </p>
+
             </div>
+
 
             <div className="payslip-period">
 
@@ -174,7 +270,10 @@ export default function Payslip({ onBack }) {
 
           </div>
 
-          {/* EMPLOYEE DETAILS */}
+
+          {/* =========================
+              EMPLOYEE DETAILS
+          ========================= */}
 
           <div className="payslip-section">
 
@@ -182,9 +281,11 @@ export default function Payslip({ onBack }) {
               EMPLOYEE DETAILS
             </span>
 
+
             <div className="employee-details-grid">
 
               <div>
+
                 <small>
                   Employee
                 </small>
@@ -192,9 +293,12 @@ export default function Payslip({ onBack }) {
                 <strong>
                   {payslip.employee?.name || "—"}
                 </strong>
+
               </div>
 
+
               <div>
+
                 <small>
                   Employee ID
                 </small>
@@ -202,9 +306,12 @@ export default function Payslip({ onBack }) {
                 <strong>
                   #{payslip.employee?.id || "—"}
                 </strong>
+
               </div>
 
+
               <div>
+
                 <small>
                   Department
                 </small>
@@ -212,9 +319,12 @@ export default function Payslip({ onBack }) {
                 <strong>
                   {payslip.employee?.department || "—"}
                 </strong>
+
               </div>
 
+
               <div>
+
                 <small>
                   Email
                 </small>
@@ -222,18 +332,24 @@ export default function Payslip({ onBack }) {
                 <strong>
                   {payslip.employee?.email || "—"}
                 </strong>
+
               </div>
 
             </div>
 
           </div>
 
-          {/* EARNINGS */}
+
+          {/* =========================
+              EARNINGS
+          ========================= */}
 
           <div className="payslip-section">
 
             <div className="payslip-section-title">
+
               <div>
+
                 <span className="section-label">
                   EARNINGS
                 </span>
@@ -241,18 +357,23 @@ export default function Payslip({ onBack }) {
                 <h3>
                   Salary components
                 </h3>
+
               </div>
+
 
               <strong className="section-total">
                 {money(
                   payslip.earnings?.grossSalary
                 )}
               </strong>
+
             </div>
+
 
             <div className="payslip-table">
 
               <div className="payslip-row">
+
                 <span>
                   Basic salary
                 </span>
@@ -262,9 +383,12 @@ export default function Payslip({ onBack }) {
                     payslip.earnings?.basicSalary
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row">
+
                 <span>
                   HRA
                 </span>
@@ -274,9 +398,12 @@ export default function Payslip({ onBack }) {
                     payslip.earnings?.hra
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row">
+
                 <span>
                   Allowances
                 </span>
@@ -286,9 +413,12 @@ export default function Payslip({ onBack }) {
                     payslip.earnings?.allowances
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row">
+
                 <span>
                   Bonus
                 </span>
@@ -298,9 +428,12 @@ export default function Payslip({ onBack }) {
                     payslip.earnings?.bonus
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row total-row">
+
                 <span>
                   Gross salary
                 </span>
@@ -310,18 +443,24 @@ export default function Payslip({ onBack }) {
                     payslip.earnings?.grossSalary
                   )}
                 </strong>
+
               </div>
 
             </div>
 
           </div>
 
-          {/* DEDUCTIONS */}
+
+          {/* =========================
+              DEDUCTIONS
+          ========================= */}
 
           <div className="payslip-section">
 
             <div className="payslip-section-title">
+
               <div>
+
                 <span className="section-label">
                   DEDUCTIONS
                 </span>
@@ -329,18 +468,23 @@ export default function Payslip({ onBack }) {
                 <h3>
                   Payroll deductions
                 </h3>
+
               </div>
+
 
               <strong className="section-total">
                 {money(
                   payslip.deductions?.totalDeductions
                 )}
               </strong>
+
             </div>
+
 
             <div className="payslip-table">
 
               <div className="payslip-row">
+
                 <span>
                   PF
                 </span>
@@ -350,9 +494,12 @@ export default function Payslip({ onBack }) {
                     payslip.deductions?.pf
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row">
+
                 <span>
                   Tax
                 </span>
@@ -362,43 +509,52 @@ export default function Payslip({ onBack }) {
                     payslip.deductions?.tax
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row">
+
                 <span>
                   Other deductions
                 </span>
 
                 <strong>
                   {money(
-                    payslip.deductions
-                      ?.otherDeductions
+                    payslip.deductions?.otherDeductions
                   )}
                 </strong>
+
               </div>
 
+
               <div className="payslip-row total-row">
+
                 <span>
                   Total deductions
                 </span>
 
                 <strong>
                   {money(
-                    payslip.deductions
-                      ?.totalDeductions
+                    payslip.deductions?.totalDeductions
                   )}
                 </strong>
+
               </div>
 
             </div>
 
           </div>
 
-          {/* NET SALARY */}
+
+          {/* =========================
+              NET SALARY
+          ========================= */}
 
           <div className="net-salary-card">
 
             <div>
+
               <span>
                 NET SALARY
               </span>
@@ -406,15 +562,22 @@ export default function Payslip({ onBack }) {
               <small>
                 Amount payable to employee
               </small>
+
             </div>
 
+
             <strong>
-              {money(payslip.netSalary)}
+              {money(
+                payslip.netSalary
+              )}
             </strong>
 
           </div>
 
-          {/* FOOTER */}
+
+          {/* =========================
+              FOOTER
+          ========================= */}
 
           <div className="payslip-footer">
 
@@ -429,6 +592,7 @@ export default function Payslip({ onBack }) {
           </div>
 
         </section>
+
       )}
 
     </div>

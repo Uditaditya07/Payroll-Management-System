@@ -24,7 +24,16 @@ function App() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [currentPage, setCurrentPage] = useState("dashboard");
+
+  const [currentPage, setCurrentPage] =
+    useState("dashboard");
+
+  /*
+   * Stores the payroll ID whose payslip
+   * should currently be displayed.
+   */
+  const [selectedPayrollId, setSelectedPayrollId] =
+    useState(null);
 
   /* =========================
      LOAD DASHBOARD
@@ -42,12 +51,9 @@ function App() {
       console.error("Dashboard error:", err);
 
       const message =
-        err?.message || "Unable to load dashboard";
+        err?.message ||
+        "Unable to load dashboard";
 
-      /*
-       * If the backend says the token is invalid
-       * or expired, immediately logout.
-       */
       if (
         message.toLowerCase().includes("invalid token") ||
         message.toLowerCase().includes("expired token") ||
@@ -59,6 +65,7 @@ function App() {
         setUser(null);
         setDashboard(null);
         setCurrentPage("dashboard");
+        setSelectedPayrollId(null);
 
         setError(
           "Your session has expired. Please sign in again."
@@ -90,15 +97,19 @@ function App() {
      LOGIN
   ========================= */
 
-  const handleLogin = async (email, password) => {
+  const handleLogin = async (
+    email,
+    password
+  ) => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await loginUser(
-        email,
-        password
-      );
+      const response =
+        await loginUser(
+          email,
+          password
+        );
 
       if (!response?.token) {
         throw new Error(
@@ -106,10 +117,8 @@ function App() {
         );
       }
 
-      /* Save JWT */
       saveToken(response.token);
 
-      /* Save user */
       const loggedInUser = {
         id: response?.userId,
         name: response?.name,
@@ -121,8 +130,8 @@ function App() {
 
       setUser(loggedInUser);
       setCurrentPage("dashboard");
+      setSelectedPayrollId(null);
 
-      /* Load dashboard after successful login */
       try {
         const dashboardData =
           await getDashboard();
@@ -134,10 +143,6 @@ function App() {
           dashboardError
         );
 
-        /*
-         * Login succeeded even if dashboard
-         * loading failed.
-         */
         setError(
           dashboardError?.message ||
           "Logged in, but dashboard could not be loaded."
@@ -147,7 +152,10 @@ function App() {
       return true;
 
     } catch (err) {
-      console.error("Login error:", err);
+      console.error(
+        "Login error:",
+        err
+      );
 
       setError(
         err?.message ||
@@ -171,6 +179,7 @@ function App() {
     setUser(null);
     setDashboard(null);
     setCurrentPage("dashboard");
+    setSelectedPayrollId(null);
     setError("");
   };
 
@@ -180,22 +189,34 @@ function App() {
 
   const goToDashboard = () => {
     setCurrentPage("dashboard");
+    setSelectedPayrollId(null);
     setError("");
 
     loadDashboard();
   };
 
   /* =========================
+     OPEN PAYSLIP
+  ========================= */
+
+  const openPayslip = (
+    payrollId
+  ) => {
+    setSelectedPayrollId(
+      payrollId
+    );
+
+    setCurrentPage("payslip");
+    setError("");
+  };
+
+  /* =========================
      AUTH CHECK
   ========================= */
 
-  /*
-   * Check authentication every render.
-   * This prevents the application from
-   * showing dashboard after logout.
-   */
   const authenticated =
-    Boolean(user) && isAuthenticated();
+    Boolean(user) &&
+    isAuthenticated();
 
   /* =========================
      LOGIN SCREEN
@@ -215,7 +236,9 @@ function App() {
      EMPLOYEES
   ========================= */
 
-  if (currentPage === "employees") {
+  if (
+    currentPage === "employees"
+  ) {
     return (
       <Employees
         onBack={goToDashboard}
@@ -227,7 +250,9 @@ function App() {
      SALARY
   ========================= */
 
-  if (currentPage === "salary") {
+  if (
+    currentPage === "salary"
+  ) {
     return (
       <Salary
         onBack={goToDashboard}
@@ -239,10 +264,13 @@ function App() {
      PAYROLL
   ========================= */
 
-  if (currentPage === "payroll") {
+  if (
+    currentPage === "payroll"
+  ) {
     return (
       <Payroll
         onBack={goToDashboard}
+        onViewPayslip={openPayslip}
       />
     );
   }
@@ -251,9 +279,14 @@ function App() {
      PAYSLIP
   ========================= */
 
-  if (currentPage === "payslip") {
+  if (
+    currentPage === "payslip"
+  ) {
     return (
       <Payslip
+        payrollId={
+          selectedPayrollId
+        }
         onBack={goToDashboard}
       />
     );
@@ -263,7 +296,9 @@ function App() {
      REPORTS
   ========================= */
 
-  if (currentPage === "reports") {
+  if (
+    currentPage === "reports"
+  ) {
     return (
       <Reports
         onBack={goToDashboard}
@@ -285,23 +320,37 @@ function App() {
       onRefresh={loadDashboard}
 
       onEmployees={() =>
-        setCurrentPage("employees")
+        setCurrentPage(
+          "employees"
+        )
       }
 
       onSalary={() =>
-        setCurrentPage("salary")
+        setCurrentPage(
+          "salary"
+        )
       }
 
       onPayroll={() =>
-        setCurrentPage("payroll")
+        setCurrentPage(
+          "payroll"
+        )
       }
 
-      onPayslips={() =>
-        setCurrentPage("payslip")
-      }
+      onPayslips={() => {
+        setSelectedPayrollId(
+          null
+        );
+
+        setCurrentPage(
+          "payslip"
+        );
+      }}
 
       onReports={() =>
-        setCurrentPage("reports")
+        setCurrentPage(
+          "reports"
+        )
       }
     />
   );

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-
+import React, { useEffect, useState } from "react";
 import {
   getEmployees,
   getSalaries,
@@ -14,7 +13,7 @@ function money(value) {
   })}`;
 }
 
-export default function Payroll({ onBack }) {
+export default function Payroll({ onBack, onViewPayslip }) {
   const [employees, setEmployees] = useState([]);
   const [salaries, setSalaries] = useState([]);
   const [payrolls, setPayrolls] = useState([]);
@@ -256,6 +255,11 @@ export default function Payroll({ onBack }) {
 
   const handleView = (payroll) => {
     setSelectedPayroll(payroll);
+
+    if (typeof onViewPayslip === "function") {
+      onViewPayslip(payroll.id);
+      return;
+    }
 
     window.scrollTo({
       top: 0,
